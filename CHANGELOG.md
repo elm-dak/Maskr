@@ -6,6 +6,20 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.4 — 2026-05-28
+### Added
+- **Undo / Redo** — Ctrl+Z / Ctrl+Y (or Cmd+Z / Cmd+Shift+Z on Mac). Dedicated panel buttons too. History is capped at 50 checkpoints.
+- **Right-click to delete a single box** — right-click any redacted area on the canvas to remove just that detection. Works in both Auto and Draw mode. Cursor changes to a pointer when hovering over a deletable box.
+- **Multi-language OCR** — new language selector above the drop zone: English, French, Arabic, and combinations. Changing language while an image is open automatically re-scans.
+- **JPG / WEBP export with quality slider** — export format selector (PNG · JPG · WEBP) in the Export panel. A quality slider (60–100%) appears for lossy formats.
+
+### Fixed
+- Removed unused `atToken` variable in `normalizeForOcr`.
+- Merge bug in `addAutoDetection`: the box expansion after an overlap merge was computing incorrect dimensions (was re-reading `d.x`/`d.y` after mutation). Fixed to compute `nx2`/`ny2` before writing back.
+- `btn:disabled` now also sets `pointer-events: none` so disabled buttons are fully inert.
+
+---
+
 ## v0.3.1 — 2026-05-28
 ### Fixed
 - **Blur style leaked content at edges.** The blur redaction style was applying its filter to an off-screen canvas that had no source pixels outside the box bounds, causing the blur to fade to transparent at every edge and potentially letting the original content show through. Fixed by drawing from a radius-padded source region so the blur computation always has real pixel context, then rendering only the target area.

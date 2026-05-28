@@ -11,25 +11,21 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<!-- MediaPipe face detection (loaded lazily, only when user clicks "Find faces") -->
 <script type="module">
-  // Expose the MediaPipe loader on window so the main (non-module) script can call it.
   window.__loadFaceDetector = async function () {
     const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18");
     const { FaceDetector, FilesetResolver } = vision;
     const resolver = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
     );
-    const detector = await FaceDetector.createFromOptions(resolver, {
+    return FaceDetector.createFromOptions(resolver, {
       baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
         delegate: "GPU"
       },
       runningMode: "IMAGE",
       minDetectionConfidence: 0.5
     });
-    return detector;
   };
 </script>
 <style>
@@ -66,182 +62,109 @@
     padding-bottom: 24px; border-bottom: 1px solid var(--line);
   }
   .brand { display: flex; align-items: baseline; gap: 12px; }
-  .logo-mark {
-    width: 36px; height: 36px; background: var(--ink);
-    position: relative; transform: rotate(-3deg);
-  }
-  .logo-mark::after {
-    content: ""; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px;
-    background: var(--accent);
-  }
+  .logo-mark { width: 36px; height: 36px; background: var(--ink); position: relative; transform: rotate(-3deg); }
+  .logo-mark::after { content: ""; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; background: var(--accent); }
   .brand h1 { font-weight: 800; font-size: 30px; letter-spacing: -0.02em; line-height: 1; }
-  .brand small {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em;
-  }
-  .top-meta {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em;
-  }
-  .top-meta .dot {
-    display: inline-block; width: 8px; height: 8px; background: var(--accent-2);
-    border-radius: 50%; margin-right: 6px; vertical-align: middle;
-    animation: pulse 2s ease-in-out infinite;
-  }
+  .brand small { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em; }
+  .top-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em; }
+  .top-meta .dot { display: inline-block; width: 8px; height: 8px; background: var(--accent-2); border-radius: 50%; margin-right: 6px; vertical-align: middle; animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .hero { padding: 56px 0 40px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: end; }
-  .hero h2 {
-    font-size: clamp(44px, 6.5vw, 80px); font-weight: 800;
-    line-height: 0.94; letter-spacing: -0.035em;
-  }
+  .hero h2 { font-size: clamp(44px, 6.5vw, 80px); font-weight: 800; line-height: 0.94; letter-spacing: -0.035em; }
   .hero h2 .strike { position: relative; display: inline-block; }
-  .hero h2 .strike::after {
-    content: ""; position: absolute; left: -4px; right: -4px; top: 52%;
-    height: 12px; background: var(--ink); transform: skewY(-2deg);
-  }
+  .hero h2 .strike::after { content: ""; position: absolute; left: -4px; right: -4px; top: 52%; height: 12px; background: var(--ink); transform: skewY(-2deg); }
   .hero h2 em { font-style: italic; color: var(--accent); font-weight: 600; }
-  .hero p {
-    font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 420px;
-    border-left: 3px solid var(--ink); padding-left: 16px;
+  .hero p { font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 420px; border-left: 3px solid var(--ink); padding-left: 16px; }
+
+  .lang-row {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+  }
+  .lang-row select {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--paper-2); border: 1px solid var(--line);
+    color: var(--ink); padding: 5px 8px; cursor: pointer;
+    text-transform: none; letter-spacing: 0;
   }
 
   .drop-zone {
-    margin-top: 12px; border: 2px dashed var(--ink); background: var(--paper-2);
+    border: 2px dashed var(--ink); background: var(--paper-2);
     padding: 52px 28px; text-align: center; cursor: pointer; position: relative;
     transition: background 0.2s, transform 0.2s;
   }
   .drop-zone:hover { background: #e2dac8; }
   .drop-zone.dragover { background: #ffe9e3; transform: scale(0.99); }
-  .drop-zone .icon {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    letter-spacing: 0.2em; color: var(--muted); margin-bottom: 12px;
-  }
+  .drop-zone .icon { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 12px; }
   .drop-zone .big { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
   .drop-zone .sub { margin-top: 8px; font-size: 14px; color: var(--muted); }
-  .drop-zone .paste-hint {
-    margin-top: 16px; font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--muted);
-  }
-  .drop-zone kbd {
-    background: var(--ink); color: var(--paper);
-    padding: 2px 6px; border-radius: 3px; font-family: inherit; font-size: 10px;
-  }
+  .drop-zone .paste-hint { margin-top: 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .drop-zone kbd { background: var(--ink); color: var(--paper); padding: 2px 6px; border-radius: 3px; font-family: inherit; font-size: 10px; }
 
   .work { display: none; margin-top: 24px; grid-template-columns: 1fr 320px; gap: 24px; }
   .work.active { display: grid; }
 
   .canvas-wrap {
     background: var(--paper-2); border: 1px solid var(--line); padding: 16px;
-    position: relative; min-height: 320px;
-    display: flex; align-items: center; justify-content: center;
+    position: relative; min-height: 320px; display: flex; align-items: center; justify-content: center;
   }
-  #canvas {
-    max-width: 100%; height: auto; display: block; background: white;
-    box-shadow: 0 16px 36px -18px rgba(0,0,0,0.25);
-    cursor: crosshair;
-  }
+  #canvas { max-width: 100%; height: auto; display: block; background: white; box-shadow: 0 16px 36px -18px rgba(0,0,0,0.25); cursor: default; }
   .mode-bar {
-    position: absolute; top: 16px; right: 16px;
-    display: flex; gap: 4px;
+    position: absolute; top: 16px; right: 16px; display: flex; gap: 4px;
     background: var(--paper); border: 1px solid var(--line); padding: 4px;
-    font-family: 'JetBrains Mono', monospace; font-size: 10px;
-    text-transform: uppercase; letter-spacing: 0.1em; z-index: 5;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; z-index: 5;
   }
-  .mode-bar button {
-    background: transparent; border: none; padding: 6px 10px;
-    cursor: pointer; font-family: inherit; font-size: inherit;
-    color: var(--ink); letter-spacing: inherit; text-transform: inherit;
-  }
+  .mode-bar button { background: transparent; border: none; padding: 6px 10px; cursor: pointer; font-family: inherit; font-size: inherit; color: var(--ink); letter-spacing: inherit; text-transform: inherit; }
   .mode-bar button.active { background: var(--ink); color: var(--paper); }
 
-  .panel {
-    background: var(--paper-2); border: 1px solid var(--line); padding: 20px;
-    display: flex; flex-direction: column; gap: 16px; height: fit-content;
-  }
-  .panel h3 {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted);
-    border-bottom: 1px solid var(--line); padding-bottom: 10px;
-  }
+  .panel { background: var(--paper-2); border: 1px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 16px; height: fit-content; }
+  .panel h3 { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 10px; }
   .toggle-list { display: flex; flex-direction: column; gap: 6px; }
-  .toggle {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 12px; background: var(--paper); border: 1px solid var(--line);
-    cursor: pointer; transition: border-color 0.15s, background 0.15s;
-    user-select: none;
-  }
+  .toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--paper); border: 1px solid var(--line); cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none; }
   .toggle:hover { border-color: var(--ink); }
   .toggle.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .toggle .label { font-size: 14px; }
-  .toggle .count {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
-    background: var(--paper-2); padding: 2px 8px; border-radius: 99px;
-    border: 1px solid var(--line);
-  }
+  .toggle .count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); background: var(--paper-2); padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); }
   .toggle.on .count { background: var(--accent); color: var(--ink); border-color: var(--accent); }
   .toggle.off { opacity: 0.45; }
   .toggle.off:hover { opacity: 0.7; }
 
   .style-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
-  .style-opt {
-    padding: 8px; background: var(--paper); border: 1px solid var(--line);
-    cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-    text-transform: uppercase; text-align: center; letter-spacing: 0.1em;
-  }
+  .style-opt { padding: 8px; background: var(--paper); border: 1px solid var(--line); cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; text-align: center; letter-spacing: 0.1em; }
   .style-opt.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
+  .quality-row { display: none; align-items: center; gap: 10px; margin-top: -8px; }
+  .quality-row input[type=range] { flex: 1; accent-color: var(--ink); cursor: pointer; }
+  .quality-row span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); min-width: 34px; text-align: right; }
+
+  .undo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
   .actions { display: flex; gap: 8px; flex-direction: column; }
-  .btn {
-    padding: 14px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-    letter-spacing: 0.15em; text-transform: uppercase; border: 1px solid var(--ink);
-    background: var(--paper); cursor: pointer; transition: all 0.15s; font-weight: 500;
-  }
+  .btn { padding: 14px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; border: 1px solid var(--ink); background: var(--paper); cursor: pointer; transition: all 0.15s; font-weight: 500; }
   .btn:hover { background: var(--ink); color: var(--paper); }
   .btn.primary { background: var(--ink); color: var(--paper); }
   .btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--ink); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .face-btn {
-    width: 100%; margin-top: 4px;
-    border-style: dashed; background: var(--paper);
-  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+  .face-btn { width: 100%; margin-top: 4px; border-style: dashed; background: var(--paper); }
   .face-btn.working { opacity: 0.6; cursor: wait; }
 
-  .status {
-    margin-top: 14px; padding: 14px 16px; background: var(--paper-2);
-    border-left: 3px solid var(--accent); font-family: 'JetBrains Mono', monospace;
-    font-size: 12px; color: var(--ink); display: none;
-  }
+  .status { margin-top: 14px; padding: 14px 16px; background: var(--paper-2); border-left: 3px solid var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); display: none; }
   .status.show { display: block; }
   .status .bar { height: 3px; background: var(--line); margin-top: 8px; overflow: hidden; }
   .status .bar > div { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
   .status.error { border-left-color: #c2410c; }
 
-  .hint {
-    margin-top: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted);
-    background: var(--paper); border: 1px dashed var(--line); display: none;
-  }
+  .hint { margin-top: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); background: var(--paper); border: 1px dashed var(--line); display: none; }
   .hint.show { display: block; }
 
-  footer.bottom {
-    margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line);
-    display: flex; justify-content: space-between; align-items: center;
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted);
-    flex-wrap: wrap; gap: 10px;
-  }
+  footer.bottom { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); flex-wrap: wrap; gap: 10px; }
   footer.bottom .privacy { color: var(--accent-2); font-weight: 700; }
 
-  .how {
-    margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
-    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  }
+  .how { margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .how-step { padding: 28px 24px; border-right: 1px solid var(--line); }
   .how-step:last-child { border-right: none; }
-  .how-step .num {
-    font-size: 52px; font-weight: 800; color: var(--accent);
-    line-height: 1; letter-spacing: -0.04em;
-  }
+  .how-step .num { font-size: 52px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -0.04em; }
   .how-step h4 { margin-top: 8px; font-size: 20px; font-weight: 600; }
   .how-step p { margin-top: 6px; font-size: 14px; color: var(--muted); line-height: 1.5; }
 
@@ -262,12 +185,10 @@
       <div class="logo-mark"></div>
       <div>
         <h1>Maskr</h1>
-        <small>v0.3 · screenshot redactor</small>
+        <small>v0.4 · screenshot redactor</small>
       </div>
     </div>
-    <div class="top-meta">
-      <span class="dot"></span> 100% in your browser
-    </div>
+    <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
   </header>
 
   <section class="hero">
@@ -278,11 +199,20 @@
         <em>Auto-blur in 3 seconds.</em>
       </h2>
     </div>
-    <p>
-      Drop a screenshot. Maskr finds emails, phone numbers, credit cards,
-      and account numbers — and blacks them out. Nothing ever leaves your device.
-    </p>
+    <p>Drop a screenshot. Maskr finds emails, phone numbers, credit cards, and account numbers — and blacks them out. Nothing ever leaves your device.</p>
   </section>
+
+  <div class="lang-row">
+    <span>OCR language</span>
+    <select id="langSelect">
+      <option value="eng">English</option>
+      <option value="fra">French</option>
+      <option value="ara">Arabic</option>
+      <option value="eng+fra">English + French</option>
+      <option value="eng+ara">English + Arabic</option>
+      <option value="eng+fra+ara">All three</option>
+    </select>
+  </div>
 
   <div class="drop-zone" id="dropZone">
     <div class="icon">— drop · paste · click —</div>
@@ -300,8 +230,8 @@
   <div class="work" id="work">
     <div class="canvas-wrap">
       <div class="mode-bar">
-        <button class="active" data-mode="auto" id="modeAuto">Auto</button>
-        <button data-mode="draw" id="modeDraw">Draw</button>
+        <button class="active" id="modeAuto">Auto</button>
+        <button id="modeDraw">Draw</button>
       </div>
       <canvas id="canvas"></canvas>
     </div>
@@ -311,7 +241,8 @@
       <div class="toggle-list" id="toggleList"></div>
       <button class="btn face-btn" id="findFacesBtn">⊕ Find faces</button>
       <div class="hint" id="manualHint">
-        Switch to <strong>Draw</strong> mode (top-right) to add your own redactions by dragging a box.
+        Switch to <strong>Draw</strong> mode to drag boxes over anything missed.
+        <strong>Right-click</strong> any box to remove it individually.
       </div>
 
       <h3 style="margin-top:8px">Style</h3>
@@ -322,7 +253,21 @@
       </div>
 
       <h3 style="margin-top:8px">Export</h3>
+      <div class="style-select" id="fmtSelect">
+        <div class="style-opt active" data-fmt="png">PNG</div>
+        <div class="style-opt" data-fmt="jpg">JPG</div>
+        <div class="style-opt" data-fmt="webp">WEBP</div>
+      </div>
+      <div class="quality-row" id="qualityRow">
+        <input type="range" id="qualitySlider" min="60" max="100" value="92" />
+        <span id="qualityVal">92%</span>
+      </div>
+
       <div class="actions">
+        <div class="undo-row">
+          <button class="btn" id="undoBtn" disabled>↩ Undo</button>
+          <button class="btn" id="redoBtn" disabled>↪ Redo</button>
+        </div>
         <button class="btn primary" id="downloadBtn">↓ Download PNG</button>
         <button class="btn" id="copyBtn">Copy to clipboard</button>
         <button class="btn" id="resetBtn">Start over</button>
@@ -332,19 +277,16 @@
 
   <section class="how">
     <div class="how-step">
-      <div class="num">01</div>
-      <h4>Drop</h4>
+      <div class="num">01</div><h4>Drop</h4>
       <p>Drag a screenshot in, paste from clipboard, or click to upload. Nothing is sent anywhere.</p>
     </div>
     <div class="how-step">
-      <div class="num">02</div>
-      <h4>Detect</h4>
+      <div class="num">02</div><h4>Detect</h4>
       <p>Local OCR scans the image and pattern-matches sensitive data: emails, phones, cards, IDs.</p>
     </div>
     <div class="how-step">
-      <div class="num">03</div>
-      <h4>Done</h4>
-      <p>Toggle what to redact, draw extra boxes if needed, download. Under 10 seconds.</p>
+      <div class="num">03</div><h4>Done</h4>
+      <p>Toggle categories, draw extra boxes, right-click to remove one — then download.</p>
     </div>
   </section>
 
@@ -354,34 +296,26 @@
   </footer>
 
 </div>
-
 <script>
 /* ===========================================================
-   Maskr v0.3 — screenshot redactor (browser-only)
+   Maskr v0.4 — screenshot redactor (browser-only)
 =========================================================== */
 
 const PATTERNS = {
   email: {
     label: "Email",
-    // Tolerant: allows spaces around @ and . that OCR sometimes inserts,
-    // and accepts @ misreads handled by normalizeForOcr() below.
     regex: () => /[a-zA-Z0-9._%+\-]+\s?@\s?[a-zA-Z0-9.\-]+\s?\.\s?[a-zA-Z]{2,}/g,
-    defaultOn: true,
-    normalize: true
+    defaultOn: true, normalize: true
   },
   phone: {
     label: "Phone",
-    // Loose phone: starts optionally with + or (, has 9-15 digits total
     regex: () => /(?:\+?\d{1,3}[\s.\-]?)?(?:\(?\d{2,4}\)?[\s.\-]?){1,2}\d{3,4}[\s.\-]?\d{3,4}/g,
-    defaultOn: true,
-    minDigits: 9,
-    maxDigits: 15
+    defaultOn: true, minDigits: 9, maxDigits: 15
   },
   creditcard: {
     label: "Card number",
     regex: () => /(?:\d[ \-]?){13,19}/g,
-    defaultOn: true,
-    validate: (s) => luhnCheck(s.replace(/\D/g, ""))
+    defaultOn: true, validate: s => luhnCheck(s.replace(/\D/g, ""))
   },
   iban: {
     label: "IBAN",
@@ -411,101 +345,118 @@ function luhnCheck(num) {
   return sum % 10 === 0;
 }
 
-// Fix the OCR misreads that most often break email detection, and return
-// both the cleaned text and a map[normIndex] -> original index so matched
-// spans can be translated back to the right word bboxes.
 function normalizeForOcr(raw) {
-  let out = "";
+  let out = "", s = raw;
   const map = [];
-  // Common @ substitutions OCR produces: "(at)", "[at]", " at ", "(@", "@"
-  // Replace multi-char "(at)" style tokens with a single @, mapping to the
-  // first original char of the token.
-  const atToken = /\(\s*at\s*\)|\[\s*at\s*\]/gi;
-  // First pass: collapse "(at)" tokens to "@"
-  let s = raw;
-  // We process char by char, but handle "(at)" by lookahead.
   let i = 0;
   while (i < s.length) {
     const rest = s.slice(i);
     const atMatch = rest.match(/^(\(\s*at\s*\)|\[\s*at\s*\])/i);
-    if (atMatch) {
-      out += "@";
-      map.push(i);
-      i += atMatch[0].length;
-      continue;
-    }
+    if (atMatch) { out += "@"; map.push(i); i += atMatch[0].length; continue; }
     let ch = s[i];
-    // Normalize lookalikes
-    if (ch === "," ) ch = "."; // OCR often reads dots in domains as commas
-    out += ch;
-    map.push(i);
-    i++;
+    if (ch === ",") ch = "."; // OCR often reads dots in domains as commas
+    out += ch; map.push(i); i++;
   }
   return { text: out, map };
 }
 
+/* ---- State ---- */
 const state = {
-  image: null,           // HTMLImageElement (original)
-  detections: [],        // {type:'auto'|'manual', subtype, text, x,y,w,h, on}
+  image: null,
+  detections: [],  // {type:'auto'|'manual', subtype, text, x, y, w, h, on}
   style: "block",
-  enabled: {},           // per-subtype on/off (auto only)
-  mode: "auto",          // 'auto' or 'draw'
+  enabled: {},
+  mode: "auto",
   drawing: false,
   drawStart: null
 };
 
-// DOM
-const dropZone   = document.getElementById("dropZone");
-const fileInput  = document.getElementById("fileInput");
-const work       = document.getElementById("work");
-const canvas     = document.getElementById("canvas");
-const ctx        = canvas.getContext("2d");
-const toggleList = document.getElementById("toggleList");
-const styleSelect= document.getElementById("styleSelect");
-const status     = document.getElementById("status");
-const statusText = document.getElementById("statusText");
-const statusBar  = document.getElementById("statusBar");
-const downloadBtn= document.getElementById("downloadBtn");
-const copyBtn    = document.getElementById("copyBtn");
-const resetBtn   = document.getElementById("resetBtn");
-const modeAuto   = document.getElementById("modeAuto");
-const modeDraw   = document.getElementById("modeDraw");
-const manualHint = document.getElementById("manualHint");
+/* ---- Undo / Redo ---- */
+const hist = [];
+let histPos = -1;
+
+function saveHistory() {
+  hist.splice(histPos + 1);
+  hist.push({
+    detections: JSON.parse(JSON.stringify(state.detections)),
+    enabled:    JSON.parse(JSON.stringify(state.enabled))
+  });
+  if (hist.length > 50) { hist.shift(); histPos = hist.length - 1; }
+  else { histPos++; }
+  syncUndoRedo();
+}
+
+function applyHist(snap) {
+  state.detections = JSON.parse(JSON.stringify(snap.detections));
+  state.enabled    = JSON.parse(JSON.stringify(snap.enabled));
+  renderTogglesAndCanvas();
+  syncUndoRedo();
+}
+
+function undo() { if (histPos > 0)                 { histPos--; applyHist(hist[histPos]); } }
+function redo() { if (histPos < hist.length - 1)   { histPos++; applyHist(hist[histPos]); } }
+function syncUndoRedo() {
+  undoBtn.disabled = histPos <= 0;
+  redoBtn.disabled = histPos >= hist.length - 1;
+}
+
+/* ---- Export state ---- */
+let exportFormat  = "png";
+let exportQuality = 0.92;
+
+/* ---- DOM refs ---- */
+const dropZone    = document.getElementById("dropZone");
+const fileInput   = document.getElementById("fileInput");
+const work        = document.getElementById("work");
+const canvas      = document.getElementById("canvas");
+const ctx         = canvas.getContext("2d");
+const toggleList  = document.getElementById("toggleList");
+const styleSelect = document.getElementById("styleSelect");
+const fmtSelect   = document.getElementById("fmtSelect");
+const qualityRow  = document.getElementById("qualityRow");
+const qualitySlider = document.getElementById("qualitySlider");
+const qualityVal  = document.getElementById("qualityVal");
+const status      = document.getElementById("status");
+const statusText  = document.getElementById("statusText");
+const statusBar   = document.getElementById("statusBar");
+const downloadBtn = document.getElementById("downloadBtn");
+const copyBtn     = document.getElementById("copyBtn");
+const resetBtn    = document.getElementById("resetBtn");
+const undoBtn     = document.getElementById("undoBtn");
+const redoBtn     = document.getElementById("redoBtn");
+const modeAuto    = document.getElementById("modeAuto");
+const modeDraw    = document.getElementById("modeDraw");
+const manualHint  = document.getElementById("manualHint");
 const findFacesBtn = document.getElementById("findFacesBtn");
+const langSelect  = document.getElementById("langSelect");
 
-let faceDetector = null;       // lazily-loaded MediaPipe detector
-let facesScanned = false;      // whether we've already run a face scan on this image
+let faceDetector = null;
+let facesScanned = false;
 
-/* ---- Input handling ---- */
+/* ---- Drop / paste / click input ---- */
 dropZone.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", e => {
-  const f = e.target.files[0]; if (f) loadFile(f);
-});
+fileInput.addEventListener("change", e => { const f = e.target.files[0]; if (f) loadFile(f); });
 ["dragenter","dragover"].forEach(ev =>
   dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add("dragover"); })
 );
 ["dragleave","drop"].forEach(ev =>
   dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove("dragover"); })
 );
-dropZone.addEventListener("drop", e => {
-  const f = e.dataTransfer.files[0]; if (f) loadFile(f);
-});
+dropZone.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
 window.addEventListener("paste", e => {
-  const items = e.clipboardData?.items || [];
-  for (const it of items) {
+  for (const it of (e.clipboardData?.items || [])) {
     if (it.type.startsWith("image/")) { loadFile(it.getAsFile()); break; }
   }
 });
 
+langSelect.addEventListener("change", () => { if (state.image) startProcessing(); });
+
 function loadFile(file) {
-  if (!file || !file.type.startsWith("image/")) {
-    showError("Please drop an image file (PNG, JPG, WEBP).");
-    return;
-  }
+  if (!file || !file.type.startsWith("image/")) { showError("Please drop an image file (PNG, JPG, WEBP)."); return; }
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
-    img.onload = () => { state.image = img; startProcessing(); };
+    img.onload  = () => { state.image = img; startProcessing(); };
     img.onerror = () => showError("Couldn't read that image. Try another one.");
     img.src = ev.target.result;
   };
@@ -513,36 +464,27 @@ function loadFile(file) {
   reader.readAsDataURL(file);
 }
 
-/* ---- Pre-processing for better OCR ---- */
+/* ---- OCR pre-processing ---- */
 function preprocessForOcr(img) {
-  // Upscale small images, convert to grayscale, increase contrast.
-  // Tesseract performs much better on larger, higher-contrast text.
-  const targetMin = 1500;            // shoot for at least 1500px on the long side
-  const longSide = Math.max(img.naturalWidth, img.naturalHeight);
-  const scale = longSide < targetMin ? Math.min(3, targetMin / longSide) : 1;
-
+  const targetMin = 1500;
+  const longSide  = Math.max(img.naturalWidth, img.naturalHeight);
+  const scale     = longSide < targetMin ? Math.min(3, targetMin / longSide) : 1;
   const w = Math.round(img.naturalWidth * scale);
   const h = Math.round(img.naturalHeight * scale);
-
-  const pre = document.createElement("canvas");
-  pre.width = w; pre.height = h;
+  const pre  = document.createElement("canvas");
+  pre.width  = w; pre.height = h;
   const pctx = pre.getContext("2d");
   pctx.imageSmoothingEnabled = true;
   pctx.imageSmoothingQuality = "high";
   pctx.drawImage(img, 0, 0, w, h);
-
-  // Grayscale + mild contrast bump
   const id = pctx.getImageData(0, 0, w, h);
-  const d = id.data;
+  const d  = id.data;
   for (let i = 0; i < d.length; i += 4) {
     const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-    // Stretch contrast around midpoint
-    let v = (gray - 128) * 1.15 + 128;
-    v = Math.max(0, Math.min(255, v));
+    let v = Math.max(0, Math.min(255, (gray - 128) * 1.15 + 128));
     d[i] = d[i+1] = d[i+2] = v;
   }
   pctx.putImageData(id, 0, 0);
-
   return { canvas: pre, scale };
 }
 
@@ -550,127 +492,91 @@ function preprocessForOcr(img) {
 async function startProcessing() {
   hideError();
   showStatus("Preparing image…", 5);
-  // Reset all state for the new image (handles paste-on-top-of-existing-session too)
-  facesScanned = false;
+  facesScanned     = false;
   state.detections = [];
-  state.enabled = {};
+  state.enabled    = {};
+  hist.length      = 0;
+  histPos          = -1;
+  syncUndoRedo();
   findFacesBtn.textContent = "⊕ Find faces";
   findFacesBtn.classList.remove("working");
-  // Draw original image on display canvas
-  canvas.width = state.image.naturalWidth;
+  canvas.width  = state.image.naturalWidth;
   canvas.height = state.image.naturalHeight;
   ctx.drawImage(state.image, 0, 0);
-
   work.classList.add("active");
   dropZone.style.display = "none";
 
-  // Pre-process for OCR
   const { canvas: ocrCanvas, scale } = preprocessForOcr(state.image);
 
-  // Check Tesseract is loaded
   if (typeof Tesseract === "undefined") {
-    showError("OCR engine didn't load. Check your internet connection and reload the page. You can still use Draw mode to redact manually.");
-    state.detections = [];
-    renderTogglesAndCanvas();
-    setMode("draw");
-    return;
+    showError("OCR engine didn't load. Reload the page or use Draw mode.");
+    renderTogglesAndCanvas(); setMode("draw"); return;
   }
 
   let worker;
   try {
     showStatus("Loading OCR engine…", 10);
-    worker = await Tesseract.createWorker("eng", 1, {
+    worker = await Tesseract.createWorker(langSelect.value, 1, {
       logger: m => {
-        if (m.status === "recognizing text") {
+        if (m.status === "recognizing text")
           showStatus("Scanning text…", 30 + Math.round(m.progress * 65));
-        } else if (m.status) {
+        else if (m.status)
           showStatus(capitalize(m.status) + "…", Math.min(28, Math.round((m.progress || 0) * 30)));
-        }
       }
     });
-
     showStatus("Scanning text…", 30);
-    // CRITICAL: must request `blocks: true` to get bounding boxes in v5+
     const result = await worker.recognize(ocrCanvas, {}, { blocks: true });
     await worker.terminate();
-
     runDetection(result.data, scale);
   } catch (err) {
     console.error("OCR error:", err);
     if (worker) { try { await worker.terminate(); } catch(_){} }
     showError("OCR couldn't run. Use Draw mode to add redactions manually.");
-    state.detections = [];
-    renderTogglesAndCanvas();
-    setMode("draw");
+    renderTogglesAndCanvas(); setMode("draw");
   }
 }
 
-/* ---- Detection ---- */
+/* ---- Pattern detection ---- */
 function runDetection(data, scale) {
-  state.detections = state.detections.filter(d => d.type === "manual"); // keep any manual boxes
-
-  // Walk blocks → paragraphs → lines → words; collect both lines (for multi-word
-  // patterns like "4111 1111 1111 1111") and individual words.
-  const lines = [];
-  const words = [];
-  const blocks = data.blocks || [];
-  for (const block of blocks) {
-    for (const para of (block.paragraphs || [])) {
+  state.detections = state.detections.filter(d => d.type === "manual");
+  const lines = [], words = [];
+  for (const block of (data.blocks || []))
+    for (const para of (block.paragraphs || []))
       for (const line of (para.lines || [])) {
         lines.push(line);
-        for (const w of (line.words || [])) {
-          words.push(w);
-        }
+        for (const w of (line.words || [])) words.push(w);
       }
-    }
+
+  if (!lines.length && !words.length) {
+    showError("No text found. Use Draw mode to redact manually.");
+    renderTogglesAndCanvas(); setMode("draw"); return;
   }
 
-  if (lines.length === 0 && words.length === 0) {
-    showError("No text was found in this image. You can still use Draw mode.");
-    renderTogglesAndCanvas();
-    setMode("draw");
-    return;
-  }
-
-  // DEBUG: log everything OCR read, so issues are diagnosable from the console.
   console.log("=== Maskr OCR debug ===");
-  console.log("Lines read by OCR:");
   lines.forEach((l, i) => console.log(`  [${i}] "${l.text}"`));
 
   for (const [subtype, pat] of Object.entries(PATTERNS)) {
-    // (1) Line-level matches. We match against a normalized copy of the line
-    // (fixing common OCR errors), then redact the words that fall in the span.
     for (const line of lines) {
       const rawText = line.text || "";
       if (!rawText.trim()) continue;
-
-      // Build normalized text + an index map back to raw positions
       const { text: normText, map } = pat.normalize
         ? normalizeForOcr(rawText)
         : { text: rawText, map: rawText.split("").map((_, i) => i) };
-
       const re = pat.regex();
       let m;
       while ((m = re.exec(normText)) !== null) {
-        const matchStr = m[0];
-        const normStart = m.index;
-        const normEnd = m.index + matchStr.length;
+        const matchStr = m[0], normStart = m.index, normEnd = m.index + matchStr.length;
         if (re.lastIndex === normStart) re.lastIndex++;
         if (!isValidMatch(pat, matchStr)) continue;
-
-        // Map normalized span back to raw character span
         const rawStart = map[normStart] ?? 0;
-        const rawEnd = (map[normEnd - 1] ?? rawText.length - 1) + 1;
-
-        const matched = matchWordsInLine(line, rawStart, rawEnd);
+        const rawEnd   = (map[normEnd - 1] ?? rawText.length - 1) + 1;
+        const matched  = matchWordsInLine(line, rawStart, rawEnd);
         if (matched.length) {
-          const box = unionBoxes(matched.map(w => w.bbox));
-          addAutoDetection(subtype, matchStr.replace(/\s/g, ""), box, scale);
-          console.log(`  ✓ ${subtype} matched: "${matchStr}" on line "${rawText}"`);
+          addAutoDetection(subtype, matchStr.replace(/\s/g, ""), unionBoxes(matched.map(w => w.bbox)), scale);
+          console.log(`  ✓ ${subtype}: "${matchStr}"`);
         }
       }
     }
-    // (2) Word-level fallback
     for (const w of words) {
       const t = w.text || "";
       if (!t.trim()) continue;
@@ -686,17 +592,15 @@ function runDetection(data, scale) {
     }
   }
 
-  // Initialize enabled state per subtype
   for (const subtype of Object.keys(PATTERNS)) {
     const hasAny = state.detections.some(d => d.type === "auto" && d.subtype === subtype);
     state.enabled[subtype] = PATTERNS[subtype].defaultOn && hasAny;
   }
-  state.detections.forEach(d => {
-    if (d.type === "auto") d.on = state.enabled[d.subtype];
-  });
+  state.detections.forEach(d => { if (d.type === "auto") d.on = state.enabled[d.subtype]; });
 
   hideStatus();
   renderTogglesAndCanvas();
+  saveHistory(); // checkpoint 0 — the freshly detected state
 }
 
 function isValidMatch(pat, str) {
@@ -705,69 +609,44 @@ function isValidMatch(pat, str) {
     if (pat.minDigits && digits < pat.minDigits) return false;
     if (pat.maxDigits && digits > pat.maxDigits) return false;
   }
-  if (pat.validate && !pat.validate(str)) return false;
-  return true;
+  return !(pat.validate && !pat.validate(str));
 }
 
 function addAutoDetection(subtype, text, box, scale) {
-  // Convert OCR-canvas coords back to original image coords
-  const x = box.x0 / scale;
-  const y = box.y0 / scale;
-  const w = (box.x1 - box.x0) / scale;
-  const h = (box.y1 - box.y0) / scale;
+  const x = box.x0 / scale, y = box.y0 / scale;
+  const w = (box.x1 - box.x0) / scale, h = (box.y1 - box.y0) / scale;
   if (w <= 0 || h <= 0) return;
-
-  // Dedup by OVERLAP, not by exact position. Two genuinely different
-  // items (e.g. two emails on different lines) barely overlap and both
-  // survive. The same item found twice (by line AND by word) overlaps
-  // heavily and is merged into the larger box.
   for (const d of state.detections) {
     if (d.type !== "auto") continue;
     if (overlapRatio(d, { x, y, w, h }) > 0.6) {
-      // Merge: expand existing box to cover both, keep it single.
-      const nx = Math.min(d.x, x);
-      const ny = Math.min(d.y, y);
-      const nx2 = Math.max(d.x + d.w, x + w);
-      const ny2 = Math.max(d.y + d.h, y + h);
-      d.x = nx; d.y = ny; d.w = nx2 - nx; d.h = ny2 - ny;
+      d.x = Math.min(d.x, x);         d.y = Math.min(d.y, y);
+      d.w = Math.max(d.x + d.w, x + w) - d.x;
+      d.h = Math.max(d.y + d.h, y + h) - d.y;
       return;
     }
   }
   state.detections.push({ type: "auto", subtype, text, x, y, w, h, on: true });
 }
 
-// Intersection area divided by the smaller box's area (0 = no overlap, 1 = fully inside)
 function overlapRatio(a, b) {
   const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
   const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
   const inter = ix * iy;
-  if (inter <= 0) return 0;
-  const areaA = a.w * a.h;
-  const areaB = b.w * b.h;
-  return inter / Math.min(areaA, areaB);
+  if (!inter) return 0;
+  return inter / Math.min(a.w * a.h, b.w * b.h);
 }
 
 function matchWordsInLine(line, start, end) {
-  // Map the regex match span (character offsets in line.text) onto the
-  // individual word bboxes. OCR doesn't guarantee single spaces, so we
-  // rebuild the offset of each word by searching line.text progressively.
-  const matched = [];
-  const ws = line.words || [];
-  const text = line.text || "";
+  const matched = [], ws = line.words || [], text = line.text || "";
   let searchFrom = 0;
-  for (let i = 0; i < ws.length; i++) {
-    const wt = ws[i].text || "";
+  for (const word of ws) {
+    const wt = word.text || "";
     if (!wt) continue;
     let idx = text.indexOf(wt, searchFrom);
-    if (idx === -1) {
-      // Fallback: assume it follows the previous word + a space
-      idx = searchFrom;
-    }
-    const wStart = idx;
+    if (idx === -1) idx = searchFrom;
     const wEnd = idx + wt.length;
     searchFrom = wEnd;
-    // Overlap between [wStart,wEnd) and the match span [start,end)
-    if (wEnd > start && wStart < end) matched.push(ws[i]);
+    if (wEnd > start && idx < end) matched.push(word);
   }
   return matched;
 }
@@ -779,34 +658,31 @@ function unionBoxes(boxes) {
   }), { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
 }
 
-/* ---- UI ---- */
+/* ---- Toggle panel + canvas ---- */
 function renderTogglesAndCanvas() {
   const counts = {};
-  state.detections.forEach(d => {
-    if (d.type === "auto") counts[d.subtype] = (counts[d.subtype] || 0) + 1;
-  });
+  state.detections.forEach(d => { if (d.type === "auto") counts[d.subtype] = (counts[d.subtype] || 0) + 1; });
 
   toggleList.innerHTML = "";
   let anyAuto = false;
+
   for (const [subtype, pat] of Object.entries(PATTERNS)) {
     const count = counts[subtype] || 0;
-    const row = document.createElement("div");
+    const row   = document.createElement("div");
     row.className = "toggle " + (state.enabled[subtype] ? "on" : "off");
     if (count === 0) row.style.opacity = 0.35;
     row.innerHTML = `<span class="label">${pat.label}</span><span class="count">${count}</span>`;
     row.addEventListener("click", () => {
       if (count === 0) return;
       state.enabled[subtype] = !state.enabled[subtype];
-      state.detections.forEach(d => {
-        if (d.type === "auto" && d.subtype === subtype) d.on = state.enabled[subtype];
-      });
+      state.detections.forEach(d => { if (d.type === "auto" && d.subtype === subtype) d.on = state.enabled[subtype]; });
       renderTogglesAndCanvas();
+      saveHistory();
     });
     toggleList.appendChild(row);
     if (count > 0) anyAuto = true;
   }
 
-  // Faces row (subtype "face" is not in PATTERNS, handled separately)
   const faceCount = counts.face || 0;
   if (faceCount > 0) {
     const row = document.createElement("div");
@@ -816,6 +692,7 @@ function renderTogglesAndCanvas() {
       state.enabled.face = !state.enabled.face;
       state.detections.forEach(d => { if (d.subtype === "face") d.on = state.enabled.face; });
       renderTogglesAndCanvas();
+      saveHistory();
     });
     toggleList.appendChild(row);
     anyAuto = true;
@@ -827,24 +704,22 @@ function renderTogglesAndCanvas() {
     row.className = "toggle on";
     row.innerHTML = `<span class="label">Manual boxes</span><span class="count">${manualCount}</span>`;
     row.addEventListener("click", () => {
-      // Clear manual boxes
-      if (confirm("Remove all manually drawn boxes?")) {
-        state.detections = state.detections.filter(d => d.type !== "manual");
-        renderTogglesAndCanvas();
-      }
+      if (!confirm("Remove all manually drawn boxes?")) return;
+      state.detections = state.detections.filter(d => d.type !== "manual");
+      renderTogglesAndCanvas();
+      saveHistory();
     });
     toggleList.appendChild(row);
   }
 
-  if (!anyAuto && manualCount === 0) {
+  if (!anyAuto && !manualCount) {
     const note = document.createElement("div");
     note.style.cssText = "font-size:13px;color:var(--muted);padding:8px 4px;line-height:1.5;";
-    note.textContent = "Nothing auto-detected. Switch to Draw mode (top-right) and drag boxes over what you want redacted.";
+    note.textContent = "Nothing auto-detected. Switch to Draw mode and drag boxes over what you want redacted.";
     toggleList.appendChild(note);
   }
 
-  manualHint.classList.toggle("show", anyAuto && manualCount === 0);
-
+  manualHint.classList.toggle("show", anyAuto && !manualCount);
   drawCanvas();
 }
 
@@ -852,8 +727,7 @@ function drawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(state.image, 0, 0);
   for (const d of state.detections) {
-    if (!d.on) continue;
-    applyRedaction(d.x, d.y, d.w, d.h, state.style);
+    if (d.on) applyRedaction(d.x, d.y, d.w, d.h, state.style);
   }
 }
 
@@ -861,38 +735,30 @@ function applyRedaction(x, y, w, h, style) {
   const pad = Math.max(2, Math.round(h * 0.1));
   x = Math.max(0, x - pad);
   y = Math.max(0, y - pad);
-  w = Math.min(canvas.width - x, w + pad * 2);
+  w = Math.min(canvas.width  - x, w + pad * 2);
   h = Math.min(canvas.height - y, h + pad * 2);
   if (w <= 0 || h <= 0) return;
-
   if (style === "block") {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#000"; ctx.fillRect(x, y, w, h);
   } else if (style === "blur") {
     blurRegion(x, y, w, h, Math.max(8, Math.round(h * 0.6)));
-  } else if (style === "pixel") {
+  } else {
     pixelateRegion(x, y, w, h, Math.max(6, Math.round(h * 0.35)));
   }
 }
 
 function blurRegion(x, y, w, h, radius) {
-  const off = document.createElement("canvas");
-  off.width = w; off.height = h;
+  const off  = document.createElement("canvas");
+  off.width  = w; off.height = h;
   const octx = off.getContext("2d");
-  // Apply filter BEFORE drawing, and pull from a padded source region so the
-  // blur algorithm has real pixels at every edge (no fade-to-transparent leak).
   octx.filter = `blur(${radius}px)`;
-  octx.drawImage(
-    canvas,
-    x - radius, y - radius, w + radius * 2, h + radius * 2,
-    -radius,    -radius,    w + radius * 2, h + radius * 2
-  );
+  octx.drawImage(canvas, x - radius, y - radius, w + radius * 2, h + radius * 2, -radius, -radius, w + radius * 2, h + radius * 2);
   ctx.drawImage(off, x, y);
 }
 
 function pixelateRegion(x, y, w, h, size) {
-  const off = document.createElement("canvas");
-  off.width = Math.max(1, Math.floor(w / size));
+  const off  = document.createElement("canvas");
+  off.width  = Math.max(1, Math.floor(w / size));
   off.height = Math.max(1, Math.floor(h / size));
   const octx = off.getContext("2d");
   octx.imageSmoothingEnabled = false;
@@ -912,69 +778,60 @@ styleSelect.addEventListener("click", e => {
   drawCanvas();
 });
 
-/* ---- Face detection (lazy-loaded MediaPipe) ---- */
+/* ---- Export format + quality ---- */
+fmtSelect.addEventListener("click", e => {
+  const opt = e.target.closest(".style-opt");
+  if (!opt) return;
+  fmtSelect.querySelectorAll(".style-opt").forEach(o => o.classList.remove("active"));
+  opt.classList.add("active");
+  exportFormat = opt.dataset.fmt;
+  qualityRow.style.display = exportFormat === "png" ? "none" : "flex";
+  downloadBtn.textContent = `↓ Download ${exportFormat.toUpperCase()}`;
+});
+
+qualitySlider.addEventListener("input", () => {
+  exportQuality = qualitySlider.value / 100;
+  qualityVal.textContent = qualitySlider.value + "%";
+});
+
+/* ---- Face detection ---- */
 findFacesBtn.addEventListener("click", async () => {
   if (!state.image) return;
   if (facesScanned) {
-    // Already scanned — toggle faces on/off instead of rescanning
     const hasFaces = state.detections.some(d => d.subtype === "face");
-    if (!hasFaces) {
-      showError("No faces were found in this image.");
-      return;
-    }
+    if (!hasFaces) { showError("No faces were found in this image."); return; }
     state.enabled.face = !state.enabled.face;
     state.detections.forEach(d => { if (d.subtype === "face") d.on = state.enabled.face; });
     renderTogglesAndCanvas();
+    saveHistory();
     return;
   }
-
   findFacesBtn.classList.add("working");
   findFacesBtn.textContent = "Loading face model…";
   try {
-    if (!faceDetector) {
-      faceDetector = await window.__loadFaceDetector();
-    }
+    if (!faceDetector) faceDetector = await window.__loadFaceDetector();
     findFacesBtn.textContent = "Scanning faces…";
-
-    // Detect on the original image element
     const result = faceDetector.detect(state.image);
-    const detections = (result && result.detections) || [];
-
     let added = 0;
-    for (const det of detections) {
+    for (const det of (result?.detections || [])) {
       const box = det.boundingBox;
       if (!box) continue;
-      // MediaPipe gives originX/originY/width/height in pixels of the input image
-      const x = box.originX;
-      const y = box.originY;
-      const w = box.width;
-      const h = box.height;
-      // Expand a bit so the whole head/hair is covered
+      const { originX: x, originY: y, width: w, height: h } = box;
       const padX = w * 0.15, padY = h * 0.2;
-      state.detections.push({
-        type: "auto", subtype: "face", text: "",
-        x: Math.max(0, x - padX),
-        y: Math.max(0, y - padY),
-        w: w + padX * 2,
-        h: h + padY * 2,
-        on: true
-      });
+      state.detections.push({ type: "auto", subtype: "face", text: "",
+        x: Math.max(0, x - padX), y: Math.max(0, y - padY),
+        w: w + padX * 2, h: h + padY * 2, on: true });
       added++;
     }
-
     facesScanned = true;
     state.enabled.face = added > 0;
     console.log(`Face scan: ${added} face(s) found.`);
-
-    if (added === 0) {
-      showError("No faces were found in this image.");
-    } else {
-      hideStatus();
-    }
+    if (added === 0) { showError("No faces were found in this image."); }
+    else             { hideStatus(); saveHistory(); }
     renderTogglesAndCanvas();
   } catch (err) {
     console.error("Face detection error:", err);
-    showError("Couldn't load the face detector. Check your connection and try again. Text redaction still works.");
+    showError("Couldn't load the face detector. Check your connection and try again.");
   } finally {
     findFacesBtn.classList.remove("working");
     const hasFacesNow = state.detections.some(d => d.subtype === "face");
@@ -982,7 +839,7 @@ findFacesBtn.addEventListener("click", async () => {
   }
 });
 
-/* ---- Mode switching + draw-to-redact ---- */
+/* ---- Mode switching ---- */
 function setMode(mode) {
   state.mode = mode;
   modeAuto.classList.toggle("active", mode === "auto");
@@ -993,71 +850,104 @@ modeAuto.addEventListener("click", () => setMode("auto"));
 modeDraw.addEventListener("click", () => setMode("draw"));
 
 function canvasCoordsFromEvent(e) {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
+  const rect   = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
   const scaleY = canvas.height / rect.height;
-  const point = e.touches ? e.touches[0] : e;
-  return {
-    x: (point.clientX - rect.left) * scaleX,
-    y: (point.clientY - rect.top) * scaleY
-  };
+  const point  = e.touches ? e.touches[0] : e;
+  return { x: (point.clientX - rect.left) * scaleX, y: (point.clientY - rect.top) * scaleY };
 }
 
-canvas.addEventListener("mousedown", startDraw);
+/* ---- Draw mode ---- */
+canvas.addEventListener("mousedown",  startDraw);
 canvas.addEventListener("touchstart", startDraw, { passive: false });
-canvas.addEventListener("mousemove", moveDraw);
-canvas.addEventListener("touchmove", moveDraw, { passive: false });
-window.addEventListener("mouseup", endDraw);
-window.addEventListener("touchend", endDraw);
+canvas.addEventListener("mousemove",  moveDraw);
+canvas.addEventListener("touchmove",  moveDraw, { passive: false });
+window.addEventListener("mouseup",    endDraw);
+window.addEventListener("touchend",   endDraw);
 
 function startDraw(e) {
   if (state.mode !== "draw") return;
   e.preventDefault();
-  state.drawing = true;
+  state.drawing   = true;
   state.drawStart = canvasCoordsFromEvent(e);
 }
+
 function moveDraw(e) {
-  if (!state.drawing) return;
+  if (!state.drawing) {
+    // In auto mode: show pointer cursor when hovering over a box (right-click hint)
+    if (state.mode !== "draw" && state.image) {
+      const { x, y } = canvasCoordsFromEvent(e);
+      const over = state.detections.some(d => {
+        const pad = Math.max(2, Math.round(d.h * 0.1));
+        return x >= d.x - pad && x <= d.x + d.w + pad && y >= d.y - pad && y <= d.y + d.h + pad;
+      });
+      canvas.style.cursor = over ? "pointer" : "default";
+    }
+    return;
+  }
   e.preventDefault();
   const cur = canvasCoordsFromEvent(e);
   drawCanvas();
-  // Draw a preview rectangle
-  ctx.strokeStyle = "#ff4d2e";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 4]);
-  const x = Math.min(state.drawStart.x, cur.x);
-  const y = Math.min(state.drawStart.y, cur.y);
-  const w = Math.abs(cur.x - state.drawStart.x);
-  const h = Math.abs(cur.y - state.drawStart.y);
-  ctx.strokeRect(x, y, w, h);
+  ctx.strokeStyle = "#ff4d2e"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.strokeRect(
+    Math.min(state.drawStart.x, cur.x), Math.min(state.drawStart.y, cur.y),
+    Math.abs(cur.x - state.drawStart.x), Math.abs(cur.y - state.drawStart.y)
+  );
   ctx.setLineDash([]);
 }
+
 function endDraw(e) {
   if (!state.drawing) return;
   state.drawing = false;
   const cur = canvasCoordsFromEvent(e.changedTouches ? { touches: e.changedTouches } : e);
-  const x = Math.min(state.drawStart.x, cur.x);
-  const y = Math.min(state.drawStart.y, cur.y);
-  const w = Math.abs(cur.x - state.drawStart.x);
-  const h = Math.abs(cur.y - state.drawStart.y);
+  const x = Math.min(state.drawStart.x, cur.x), y = Math.min(state.drawStart.y, cur.y);
+  const w = Math.abs(cur.x - state.drawStart.x), h = Math.abs(cur.y - state.drawStart.y);
   if (w > 8 && h > 8) {
     state.detections.push({ type: "manual", subtype: "manual", text: "", x, y, w, h, on: true });
     renderTogglesAndCanvas();
+    saveHistory();
   } else {
     drawCanvas();
   }
 }
 
+/* ---- Right-click to remove a single box ---- */
+canvas.addEventListener("contextmenu", e => {
+  e.preventDefault();
+  if (!state.image) return;
+  const { x, y } = canvasCoordsFromEvent(e);
+  for (let i = state.detections.length - 1; i >= 0; i--) {
+    const d   = state.detections[i];
+    const pad = Math.max(2, Math.round(d.h * 0.1));
+    if (x >= d.x - pad && x <= d.x + d.w + pad && y >= d.y - pad && y <= d.y + d.h + pad) {
+      state.detections.splice(i, 1);
+      renderTogglesAndCanvas();
+      saveHistory();
+      return;
+    }
+  }
+});
+
+/* ---- Keyboard shortcuts ---- */
+window.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); redo(); }
+});
+undoBtn.addEventListener("click", undo);
+redoBtn.addEventListener("click", redo);
+
 /* ---- Export ---- */
 downloadBtn.addEventListener("click", () => {
+  const mime = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" }[exportFormat] || "image/png";
+  const q    = exportFormat === "png" ? undefined : exportQuality;
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a   = document.createElement("a");
     a.href = url;
-    a.download = "redacted.png";
+    a.download = `redacted.${exportFormat}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, "image/png");
+  }, mime, q);
 });
 
 copyBtn.addEventListener("click", async () => {
@@ -1066,19 +956,17 @@ copyBtn.addEventListener("click", async () => {
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     copyBtn.textContent = "✓ Copied";
     setTimeout(() => (copyBtn.textContent = "Copy to clipboard"), 1500);
-  } catch (err) {
+  } catch {
     alert("Couldn't copy — your browser may not support image clipboard. Use Download instead.");
   }
 });
 
 resetBtn.addEventListener("click", () => {
-  state.image = null;
-  state.detections = [];
-  state.enabled = {};
-  state.mode = "auto";
-  facesScanned = false;
+  state.image = null; state.detections = []; state.enabled = {}; state.mode = "auto";
+  hist.length = 0; histPos = -1; facesScanned = false;
   findFacesBtn.textContent = "⊕ Find faces";
   findFacesBtn.classList.remove("working");
+  syncUndoRedo();
   setMode("auto");
   work.classList.remove("active");
   dropZone.style.display = "block";
@@ -1086,25 +974,17 @@ resetBtn.addEventListener("click", () => {
   hideStatus();
 });
 
-/* ---- Status / errors ---- */
+/* ---- Status helpers ---- */
 function showStatus(text, pct) {
-  status.classList.add("show");
-  status.classList.remove("error");
-  statusText.textContent = text;
-  statusBar.style.width = (pct || 0) + "%";
+  status.classList.add("show"); status.classList.remove("error");
+  statusText.textContent = text; statusBar.style.width = (pct || 0) + "%";
 }
-function hideStatus() {
-  status.classList.remove("show");
-  statusBar.style.width = "0%";
-}
+function hideStatus() { status.classList.remove("show"); statusBar.style.width = "0%"; }
 function showError(text) {
   status.classList.add("show", "error");
-  statusText.textContent = "⚠ " + text;
-  statusBar.style.width = "100%";
+  statusText.textContent = "⚠ " + text; statusBar.style.width = "100%";
 }
-function hideError() {
-  status.classList.remove("error");
-}
+function hideError() { status.classList.remove("error"); }
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 </script>
 </body>
