@@ -357,7 +357,7 @@
 
 <script>
 /* ===========================================================
-   Maskr v0.2 — screenshot redactor (browser-only)
+   Maskr v0.3 — screenshot redactor (browser-only)
 =========================================================== */
 
 const PATTERNS = {
@@ -550,9 +550,10 @@ function preprocessForOcr(img) {
 async function startProcessing() {
   hideError();
   showStatus("Preparing image…", 5);
-  // Reset face-scan state for the new image
+  // Reset all state for the new image (handles paste-on-top-of-existing-session too)
   facesScanned = false;
-  state.enabled.face = false;
+  state.detections = [];
+  state.enabled = {};
   findFacesBtn.textContent = "⊕ Find faces";
   findFacesBtn.classList.remove("working");
   // Draw original image on display canvas
@@ -878,9 +879,14 @@ function blurRegion(x, y, w, h, radius) {
   const off = document.createElement("canvas");
   off.width = w; off.height = h;
   const octx = off.getContext("2d");
-  octx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+  // Apply filter BEFORE drawing, and pull from a padded source region so the
+  // blur algorithm has real pixels at every edge (no fade-to-transparent leak).
   octx.filter = `blur(${radius}px)`;
-  octx.drawImage(off, 0, 0);
+  octx.drawImage(
+    canvas,
+    x - radius, y - radius, w + radius * 2, h + radius * 2,
+    -radius,    -radius,    w + radius * 2, h + radius * 2
+  );
   ctx.drawImage(off, x, y);
 }
 
@@ -971,7 +977,8 @@ findFacesBtn.addEventListener("click", async () => {
     showError("Couldn't load the face detector. Check your connection and try again. Text redaction still works.");
   } finally {
     findFacesBtn.classList.remove("working");
-    findFacesBtn.textContent = facesScanned ? "Toggle faces" : "⊕ Find faces";
+    const hasFacesNow = state.detections.some(d => d.subtype === "face");
+    findFacesBtn.textContent = (facesScanned && hasFacesNow) ? "Toggle faces" : "⊕ Find faces";
   }
 });
 
