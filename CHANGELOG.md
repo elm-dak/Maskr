@@ -6,6 +6,27 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.10 — 2026-05-29
+### Added — Video Redactor (new tab)
+- Drop MP4 / WebM / MOV → Maskr processes every frame, applies face and/or weapon redaction, outputs a downloadable redacted WebM file — 100% in-browser, nothing uploaded.
+- Uses same MediaPipe FaceDetector + ObjectDetector already loaded for image detection — no extra model download if they're already warm.
+- Configurable detection rate slider (detect every N frames, default 5 = balance of speed vs accuracy).
+- Block / Blur / Pixel redaction style applies to all video detections.
+- Live preview canvas updates as each frame is processed.
+- Real-time progress bar with ETA countdown.
+- MediaRecorder API with VP9/VP8/WebM automatic codec selection based on browser support.
+- Output file size shown before download.
+
+### Fixed — weapon detection sensitivity
+- Lowered default EfficientDet `scoreThreshold` from 0.4 → 0.25 so partial occlusions and difficult angles are detected.
+- Expanded `WEAPON_COCO` class set to include additional detectable objects (baseball bat, bottle, fork — objects that appear in social-media content flagged by platforms).
+- `maxResults` raised from 30 → 50 for denser scenes.
+
+### Fixed — adult content model load failure
+- NSFWJS model was loading from jsDelivr npm path which doesn't serve the model.json + shard files correctly. Switched to the stable GCP Storage URL (`storage.googleapis.com/tmdata/nsfwjs/`) — the same URL the library uses by default.
+
+---
+
 ## v0.9 — 2026-05-29
 ### Added — content safety detection
 - **Find weapons** (lazy-loaded, MediaPipe EfficientDet Lite, ~3.4 MB one-time): detects knives and scissors from COCO 80-class model with bounding boxes. GPU delegate with automatic CPU fallback. 20% padding applied around detected boxes. Clear note shown to users when no weapons found: gun detection requires a specialized model (v0.10).

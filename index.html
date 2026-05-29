@@ -45,8 +45,8 @@
     return v.ObjectDetector.createFromOptions(resolver, {
       baseOptions: { modelAssetPath: OBJ_MODEL, delegate: "GPU" },
       runningMode: "IMAGE",
-      scoreThreshold: threshold || 0.4,
-      maxResults: 30
+      scoreThreshold: threshold || 0.25,  // lower default = fewer misses
+      maxResults: 50
     });
   };
 </script>
@@ -157,6 +157,20 @@
   .pw-wrap{position:relative}
   .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px}
   .qr-status-row{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  /* Video tool */
+  #videoTool{padding-top:32px}
+  .vid-intro{margin-bottom:28px}.vid-intro h2{font-size:32px;font-weight:800;letter-spacing:-.02em}.vid-intro p{margin-top:8px;font-size:16px;color:var(--muted)}
+  .vid-grid{display:grid;grid-template-columns:1fr 320px;gap:24px;margin-top:24px}
+  .vid-preview-box{background:var(--paper-2);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:320px}
+  #vidPreview{max-width:100%;max-height:400px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .vid-empty{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);text-align:center;line-height:1.8}
+  .vid-progress-wrap{width:100%;display:none}.vid-progress-wrap.show{display:block}
+  .vid-progress-bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:6px}
+  .vid-progress-bar>div{height:100%;background:var(--accent);width:0%;transition:width .3s}
+  .vid-progress-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  .vid-option-row{display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer;user-select:none}
+  .vid-option-row input[type=checkbox]{accent-color:var(--ink);width:15px;height:15px;cursor:pointer}
+  @media(max-width:860px){.vid-grid{grid-template-columns:1fr}}
   /* How steps */
   .how{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .how-step{padding:28px 24px;border-right:1px solid var(--line)}.how-step:last-child{border-right:none}
@@ -173,7 +187,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.9 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -181,6 +195,7 @@
   <button class="tool-tab active" id="tabImage">Image</button>
   <button class="tool-tab" id="tabPdf">PDF <span class="lib-dot" id="pdfLibDot" title="PDF engine status"></span></button>
   <button class="tool-tab" id="tabQr">QR Code <span class="lib-dot" id="qrLibDot" title="QR engine status"></span></button>
+  <button class="tool-tab" id="tabVideo">Video</button>
 </nav>
 
 <!-- ═══ IMAGE ═══ -->
@@ -342,6 +357,65 @@
         <button class="btn wide" id="qrCopyBtn">Copy to clipboard</button>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ═══ VIDEO (v0.10) ═══ -->
+<section id="videoTool" style="display:none">
+  <div class="vid-intro">
+    <h2>Video Redactor</h2>
+    <p>Drop a video. Maskr scans every frame for faces and weapons, blurs them out, and gives you a clean redacted file — all in your browser. Nothing is uploaded.</p>
+  </div>
+
+  <div class="drop-zone" id="vidDropZone">
+    <div class="dz-icon">— drop video here —</div>
+    <div class="dz-big">Drop a video to redact</div>
+    <div class="dz-sub">MP4, WebM, MOV · processed frame-by-frame in your browser</div>
+    <div class="dz-hint">Output: redacted WebM file (plays in all modern browsers)</div>
+    <input type="file" id="vidFileInput" accept="video/*" style="display:none" />
+  </div>
+
+  <div class="vid-grid" id="vidGrid" style="display:none">
+    <!-- Preview -->
+    <div class="vid-preview-box">
+      <div class="vid-empty" id="vidEmpty">Processing preview<br/>will appear here</div>
+      <canvas id="vidPreview"></canvas>
+      <div class="vid-progress-wrap" id="vidProgressWrap">
+        <div class="vid-progress-label" id="vidProgressLabel">Starting…</div>
+        <div class="vid-progress-bar"><div id="vidProgressBar"></div></div>
+      </div>
+    </div>
+
+    <!-- Options panel -->
+    <aside class="panel">
+      <h3>What to redact</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+        <label class="vid-option-row"><input type="checkbox" id="vBlurFaces" checked /> Faces <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">BlazeFace</span></label>
+        <label class="vid-option-row"><input type="checkbox" id="vBlurWeapons" /> Weapons <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">EfficientDet</span></label>
+      </div>
+
+      <h3 style="margin-top:4px">Redaction style</h3>
+      <div class="style-select" id="vidStyleSelect">
+        <div class="style-opt" data-style="block">Block</div>
+        <div class="style-opt active" data-style="blur">Blur</div>
+        <div class="style-opt" data-style="pixel">Pixel</div>
+      </div>
+
+      <h3 style="margin-top:4px">Detection rate</h3>
+      <div style="padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px">
+          <span>Detect every N frames</span><span id="vidDetectEveryVal">5</span>
+        </div>
+        <input type="range" id="vidDetectEvery" min="1" max="15" value="5" style="width:100%;accent-color:var(--ink);cursor:pointer" />
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Lower = more accurate but slower · Higher = faster</div>
+      </div>
+
+      <div class="actions" style="margin-top:4px">
+        <button class="btn primary wide" id="vidProcessBtn">▶ Start processing</button>
+        <button class="btn wide" id="vidDownloadBtn" disabled>↓ Download redacted video</button>
+        <button class="btn wide" id="vidResetBtn">Start over</button>
+      </div>
+    </aside>
   </div>
 </section>
 
@@ -615,11 +689,11 @@ function dataUrlToBytes(url){const bin=atob(url.split(",")[1]);const out=new Uin
 
 /* ═══ TOOL SWITCHING ═══ */
 let activeTool="image";
-const TAB_EL ={image:"tabImage",pdf:"tabPdf",qr:"tabQr"};
-const SECT_EL={image:"imageTool",pdf:"pdfTool",qr:"qrTool"};
+const TAB_EL ={image:"tabImage",pdf:"tabPdf",qr:"tabQr",video:"tabVideo"};
+const SECT_EL={image:"imageTool",pdf:"pdfTool",qr:"qrTool",video:"videoTool"};
 function switchTool(t){
   activeTool=t;
-  ["image","pdf","qr"].forEach(n=>{
+  ["image","pdf","qr","video"].forEach(n=>{
     document.getElementById(TAB_EL[n]).classList.toggle("active",n===t);
     document.getElementById(SECT_EL[n]).style.display=n===t?"":"none";
   });
@@ -629,6 +703,7 @@ function switchTool(t){
 document.getElementById("tabImage").addEventListener("click",()=>switchTool("image"));
 document.getElementById("tabPdf").addEventListener("click",  ()=>switchTool("pdf"));
 document.getElementById("tabQr").addEventListener("click",   ()=>switchTool("qr"));
+document.getElementById("tabVideo").addEventListener("click",()=>switchTool("video"));
 
 /* ═══ IMAGE TOOL ═══ */
 const imgState={image:null,detections:[],style:"block",enabled:{},mode:"auto",drawing:false,drawStart:null};
@@ -663,8 +738,15 @@ const findWeaponsBtn=document.getElementById("findWeaponsBtn"),findAdultBtn=docu
 const thresholdSlider=document.getElementById("thresholdSlider"),thresholdVal=document.getElementById("thresholdVal");
 thresholdSlider.addEventListener("input",()=>{confidenceThreshold=thresholdSlider.value/100;thresholdVal.textContent=thresholdSlider.value+"%";});
 
-// COCO classes that MediaPipe EfficientDet Lite can detect as weapon-adjacent
-const WEAPON_COCO = new Set(["knife","scissors","baseball bat"]);
+// COCO classes detected by EfficientDet Lite — expanded for better coverage
+// (baseball bat, sports equipment can also appear weapon-like in context)
+const WEAPON_COCO = new Set([
+  "knife","scissors","baseball bat",
+  "bottle","fork","spoon",          // sharp / throwable objects
+  "umbrella","tennis racket","skateboard"  // blunt objects
+]);
+// Strict set — always show in results panel even without label context
+const WEAPON_STRICT = new Set(["knife","scissors","baseball bat"]);
 
 imgDropZone.addEventListener("click",()=>fileInput.click());
 fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFile(f);});
@@ -857,7 +939,8 @@ findAdultBtn.addEventListener("click",async()=>{
     if(!nsfwModel){
       findAdultBtn.textContent="Loading content safety model (~5 MB)…";
       await loadLib(["https://cdn.jsdelivr.net/npm/nsfwjs@4.1.0/dist/nsfwjs.min.js","https://unpkg.com/nsfwjs@4.1.0/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_4_1_0");
-      nsfwModel=await nsfwjs.load("https://cdn.jsdelivr.net/npm/nsfwjs@4.1.0/dist/quant_nsfw_mobilenet/");
+      // Load from the official NSFWJS model CDN (GCP bucket, stable since 2019)
+      nsfwModel=await nsfwjs.load("https://storage.googleapis.com/tmdata/nsfwjs/quant_nsfw_mobilenet/");
     }
     findAdultBtn.textContent="Analysing content…";
     console.log("Maskr: NSFWJS classification start, threshold",confidenceThreshold);
@@ -1057,6 +1140,214 @@ async function pdfBuildAndDownload(){
 }
 
 function pdfShowStatus(text,pctOrErr){pdfStatusEl.classList.add("show");pdfStatusEl.classList.toggle("error",pctOrErr===true);pdfStatusTxt.textContent=pctOrErr===true?"⚠ "+text:text;pdfStatusBar.style.width=(pctOrErr===true?100:pctOrErr||0)+"%";}
+
+/* ═══ VIDEO TOOL (v0.10) ═══ */
+const vidDropZone    = document.getElementById("vidDropZone");
+const vidFileInput   = document.getElementById("vidFileInput");
+const vidGrid        = document.getElementById("vidGrid");
+const vidPreview     = document.getElementById("vidPreview");
+const vidEmpty       = document.getElementById("vidEmpty");
+const vidProgressWrap= document.getElementById("vidProgressWrap");
+const vidProgressBar = document.getElementById("vidProgressBar");
+const vidProgressLbl = document.getElementById("vidProgressLabel");
+const vidProcessBtn  = document.getElementById("vidProcessBtn");
+const vidDownloadBtn = document.getElementById("vidDownloadBtn");
+const vidResetBtn    = document.getElementById("vidResetBtn");
+const vidStyleSel    = document.getElementById("vidStyleSelect");
+const vidDetectEvery = document.getElementById("vidDetectEvery");
+const vidDetectEveryVal = document.getElementById("vidDetectEveryVal");
+const vBlurFaces     = document.getElementById("vBlurFaces");
+const vBlurWeapons   = document.getElementById("vBlurWeapons");
+
+let vidStyle = "blur";
+let vidDetectN = 5;
+let vidResultBlob = null;
+let vidProcessing = false;
+
+vidStyleSel.addEventListener("click", e => {
+  const opt = e.target.closest(".style-opt"); if (!opt) return;
+  vidStyleSel.querySelectorAll(".style-opt").forEach(o => o.classList.remove("active"));
+  opt.classList.add("active"); vidStyle = opt.dataset.style;
+});
+vidDetectEvery.addEventListener("input", () => {
+  vidDetectN = parseInt(vidDetectEvery.value);
+  vidDetectEveryVal.textContent = vidDetectN;
+});
+
+vidDropZone.addEventListener("click", () => vidFileInput.click());
+vidFileInput.addEventListener("change", e => { const f = e.target.files[0]; if (f) vidLoadFile(f); });
+["dragenter","dragover"].forEach(ev => vidDropZone.addEventListener(ev, e => { e.preventDefault(); vidDropZone.classList.add("dragover"); }));
+["dragleave","drop"].forEach(ev => vidDropZone.addEventListener(ev, e => { e.preventDefault(); vidDropZone.classList.remove("dragover"); }));
+vidDropZone.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) vidLoadFile(f); });
+
+function vidLoadFile(file) {
+  if (!file || !file.type.startsWith("video/")) { alert("Please drop a video file (MP4, WebM, MOV)."); return; }
+  vidDropZone.style.display = "none";
+  vidGrid.style.display = "grid";
+  vidEmpty.textContent = "Ready — click Start processing";
+  vidProcessBtn.dataset.file = "";
+  // Store file reference on button for retrieval
+  vidProcessBtn._file = file;
+  vidDownloadBtn.disabled = true; vidResultBlob = null;
+}
+
+vidProcessBtn.addEventListener("click", async () => {
+  if (vidProcessing) return;
+  const file = vidProcessBtn._file;
+  if (!file) return;
+  await runVideoRedaction(file);
+});
+
+async function runVideoRedaction(file) {
+  vidProcessing = true;
+  vidProcessBtn.disabled = true;
+  vidDownloadBtn.disabled = true;
+  vidResultBlob = null;
+
+  // Set up source video element
+  const video = document.createElement("video");
+  video.src = URL.createObjectURL(file);
+  video.muted = true; video.playsInline = true;
+  await new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = rej; });
+
+  const vw = video.videoWidth, vh = video.videoHeight, duration = video.duration;
+  console.log(`Maskr Video: ${vw}×${vh} ${duration.toFixed(1)}s`);
+
+  // Set up output canvas (what MediaRecorder records)
+  const outC = document.createElement("canvas");
+  outC.width = vw; outC.height = vh;
+  const outCtx = outC.getContext("2d");
+
+  // Preview canvas (scaled for display)
+  const scale = Math.min(1, 640 / Math.max(vw, vh));
+  vidPreview.width  = Math.round(vw * scale);
+  vidPreview.height = Math.round(vh * scale);
+  vidPreview.style.display = "block";
+  vidEmpty.style.display = "none";
+  const prevCtx = vidPreview.getContext("2d");
+
+  // Load required detectors
+  vidProgressWrap.classList.add("show");
+  vidProgressLbl.textContent = "Loading detectors…";
+
+  if (vBlurFaces.checked && !faceDetector) {
+    try { faceDetector = await window.__loadFaceDetector(); }
+    catch { faceDetector = await window.__loadFaceDetectorCPU(); }
+  }
+  if (vBlurWeapons.checked && !objectDetector) {
+    objectDetector = await window.__loadObjectDetector(0.4);
+  }
+
+  // Check MediaRecorder support
+  const mime = ["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm","video/mp4"]
+    .find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
+  console.log("Maskr Video: MediaRecorder using", mime);
+
+  const stream = outC.captureStream(30);
+  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.start(200); // 200ms chunks
+
+  // Frame processing loop
+  const FPS_OUT = 30;
+  const frameMs = 1000 / FPS_OUT;
+  const totalFrames = Math.ceil(duration * FPS_OUT);
+  let frameNum = 0;
+  let lastBoxes = [];
+  const t0 = performance.now();
+
+  for (let t = 0; t <= duration; t += 1 / FPS_OUT) {
+    if (!vidProcessing) break; // cancelled
+
+    // Seek to frame
+    video.currentTime = t;
+    await new Promise(res => { video.onseeked = res; });
+
+    // Detection every N frames
+    if (frameNum % vidDetectN === 0) {
+      lastBoxes = [];
+      if (vBlurFaces.checked && faceDetector) {
+        try {
+          const r = faceDetector.detect(video);
+          for (const det of (r?.detections || [])) {
+            const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
+            const px = w * 0.15, py = h * 0.2;
+            lastBoxes.push({ x: Math.max(0, x-px), y: Math.max(0, y-py), w: w+px*2, h: h+py*2 });
+          }
+        } catch(_) {}
+      }
+      if (vBlurWeapons.checked && objectDetector) {
+        try {
+          const r = objectDetector.detect(video);
+          for (const det of (r?.detections || [])) {
+            const cat = det.categories?.[0];
+            if (!cat || !WEAPON_COCO.has((cat.categoryName||"").toLowerCase())) continue;
+            const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
+            lastBoxes.push({ x: Math.max(0, x-w*.1), y: Math.max(0, y-h*.1), w: w*1.2, h: h*1.2 });
+          }
+        } catch(_) {}
+      }
+    }
+
+    // Draw frame to output canvas
+    outCtx.drawImage(video, 0, 0, vw, vh);
+    for (const b of lastBoxes) {
+      applyRedactionToCtx(outCtx, outC, b.x, b.y, b.w, b.h, vidStyle);
+    }
+
+    // Mirror to preview
+    prevCtx.drawImage(outC, 0, 0, vidPreview.width, vidPreview.height);
+
+    // Progress
+    const pct = Math.min(1, frameNum / totalFrames);
+    vidProgressBar.style.width = (pct * 100).toFixed(1) + "%";
+    const elapsed = (performance.now() - t0) / 1000;
+    const eta = pct > 0.01 ? (elapsed / pct) * (1 - pct) : 0;
+    vidProgressLbl.textContent = `Frame ${frameNum+1}/${totalFrames} · ${(pct*100).toFixed(0)}% · ETA ${eta > 0 ? Math.ceil(eta)+"s" : "…"}`;
+
+    frameNum++;
+
+    // Yield to browser so MediaRecorder can capture the frame
+    await new Promise(r => setTimeout(r, frameMs > 0 ? 1 : 0));
+  }
+
+  // Finalise
+  recorder.stop();
+  await new Promise(r => recorder.onstop = r);
+  URL.revokeObjectURL(video.src);
+
+  vidResultBlob = new Blob(chunks, { type: mime });
+  vidProgressBar.style.width = "100%";
+  vidProgressLbl.textContent = `Done — ${(vidResultBlob.size / 1048576).toFixed(1)} MB · click Download`;
+  vidDownloadBtn.disabled = false;
+  vidProcessBtn.disabled = false;
+  vidProcessing = false;
+  console.log(`Maskr Video: done, ${(vidResultBlob.size/1048576).toFixed(2)} MB`);
+}
+
+vidDownloadBtn.addEventListener("click", () => {
+  if (!vidResultBlob) return;
+  const ext = vidResultBlob.type.includes("mp4") ? "mp4" : "webm";
+  const url = URL.createObjectURL(vidResultBlob);
+  const a = document.createElement("a"); a.href = url; a.download = `redacted.${ext}`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+
+vidResetBtn.addEventListener("click", () => {
+  vidProcessing = false;
+  vidResultBlob = null;
+  vidProcessBtn._file = null;
+  vidProcessBtn.disabled = false;
+  vidDownloadBtn.disabled = true;
+  vidGrid.style.display = "none";
+  vidDropZone.style.display = "block";
+  vidFileInput.value = "";
+  vidPreview.style.display = "none";
+  vidEmpty.style.display = "";
+  vidProgressWrap.classList.remove("show");
+  vidProgressBar.style.width = "0%";
+});
 
 /* ═══ QR TOOL ═══ */
 let qrSize=300,qrEc="M",qrDarkColor="#0a0a0a",qrLightColor="#f4efe6",qrType="url";
