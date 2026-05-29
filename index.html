@@ -956,12 +956,13 @@ findAdultBtn.addEventListener("click",async()=>{
   try{
     if(!tfReady){
       findAdultBtn.textContent="Loading TensorFlow.js…";
-      await loadLib(["https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js","https://unpkg.com/@tensorflow/tfjs@4.15.0/dist/tf.min.js"],"tf","tfjs_4_15_0");
+      await loadLib(["https://unpkg.com/@tensorflow/tfjs/dist/tf.min.js","https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"],"tf","tfjs_latest");
       tfReady=true;
     }
     if(!nsfwModel){
       findAdultBtn.textContent="Loading content safety model (~5 MB)…";
-      await loadLib(["https://cdn.jsdelivr.net/npm/nsfwjs@4.1.0/dist/nsfwjs.min.js","https://unpkg.com/nsfwjs@4.1.0/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_4_1_0");
+      // No version pin — nsfwjs@4.1.0 does not exist; let unpkg resolve latest
+      await loadLib(["https://unpkg.com/nsfwjs/dist/nsfwjs.min.js","https://cdn.jsdelivr.net/npm/nsfwjs/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_latest");
       // Load from the official NSFWJS model CDN (GCP bucket, stable since 2019)
       nsfwModel=await nsfwjs.load("https://storage.googleapis.com/tmdata/nsfwjs/quant_nsfw_mobilenet/");
     }
@@ -1202,9 +1203,19 @@ function vidIou(a, b) {
 }
 
 function vidUpdateTracks(newDets, frameNum) {
+  // --- Step 1: extrapolate unconfirmed tracks forward using their last velocity ---
+  // This moves persistent boxes to where the subject is likely going,
+  // so they don't freeze in place when the detector misses a frame.
+  for (const t of vidTracks) {
+    if (t.vx !== undefined) {
+      t.x += t.vx; t.y += t.vy;
+      t.vx *= 0.88; t.vy *= 0.88; // velocity decays each frame
+    }
+  }
+
+  // --- Step 2: match new detections to existing tracks by IoU ---
   const matched = new Set();
   for (const det of newDets) {
-    // Find the closest existing track by IoU
     let best = null, bestScore = VID_MATCH;
     for (const t of vidTracks) {
       if (matched.has(t)) continue;
@@ -1212,7 +1223,11 @@ function vidUpdateTracks(newDets, frameNum) {
       if (score > bestScore) { bestScore = score; best = t; }
     }
     if (best) {
-      // Smooth-update the existing track's position (prevents jitter)
+      // Compute velocity from how far the box moved since last confirmed position
+      const dx = det.x - best.x, dy = det.y - best.y;
+      best.vx = (best.vx || 0) * 0.5 + dx * VID_SMOOTH * 0.5;
+      best.vy = (best.vy || 0) * 0.5 + dy * VID_SMOOTH * 0.5;
+      // Smooth-update position (prevents jitter)
       best.x = best.x*(1-VID_SMOOTH) + det.x*VID_SMOOTH;
       best.y = best.y*(1-VID_SMOOTH) + det.y*VID_SMOOTH;
       best.w = best.w*(1-VID_SMOOTH) + det.w*VID_SMOOTH;
@@ -1220,11 +1235,12 @@ function vidUpdateTracks(newDets, frameNum) {
       best.lastSeen = frameNum;
       matched.add(best);
     } else {
-      // Brand-new detection — create a fresh track
-      vidTracks.push({ ...det, lastSeen: frameNum, id: ++vidTrackId });
+      // Brand-new detection — create a fresh track with zero velocity
+      vidTracks.push({ ...det, lastSeen: frameNum, id: ++vidTrackId, vx: 0, vy: 0 });
     }
   }
-  // Expire tracks that haven't been confirmed for VID_PERSIST frames
+
+  // --- Step 3: expire tracks that haven't been confirmed long enough ---
   vidTracks = vidTracks.filter(t => frameNum - t.lastSeen < VID_PERSIST);
 }
 let vidTrackId = 0;
