@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://maskr.mestafa-wydad66.workers.dev/sitemap.xml

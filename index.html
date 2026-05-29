@@ -3,8 +3,112 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Maskr — Screenshot & PDF redactor · QR generator</title>
-<meta name="description" content="Redact screenshots and PDFs, generate QR codes. 100% in your browser. No uploads. Free." />
+
+<!-- ═══ PRIMARY SEO ═══ -->
+<title>Maskr — Free Screenshot & PDF Redactor | Blur Faces, Emails & Sensitive Data Online</title>
+<meta name="description" content="Maskr redacts screenshots and PDFs in seconds — blurs emails, phone numbers, credit cards, IBANs and faces automatically. 100% free, 100% private. Nothing is ever uploaded. Works offline." />
+<meta name="keywords" content="redact screenshot online, blur sensitive information, hide email screenshot, PDF redactor free, blur face photo, GDPR redaction tool, screenshot privacy, redact document browser, blur phone number photo, free image redaction" />
+<meta name="author" content="Maskr by Taskflow team" />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+<link rel="canonical" href="https://maskr.mestafa-wydad66.workers.dev/" />
+
+<!-- ═══ OPEN GRAPH (Facebook, LinkedIn, WhatsApp previews) ═══ -->
+<meta property="og:type"        content="website" />
+<meta property="og:url"         content="https://maskr.mestafa-wydad66.workers.dev/" />
+<meta property="og:site_name"   content="Maskr" />
+<meta property="og:title"       content="Maskr — Free Screenshot & PDF Redactor" />
+<meta property="og:description" content="Auto-blur emails, phone numbers, credit cards, faces and more in screenshots and PDFs. 100% free. Nothing uploaded. Works in your browser." />
+<meta property="og:locale"      content="en_US" />
+
+<!-- ═══ TWITTER CARD ═══ -->
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:title"       content="Maskr — Free Screenshot & PDF Redactor" />
+<meta name="twitter:description" content="Auto-blur sensitive data in screenshots and PDFs. Emails, phone numbers, credit cards, faces — detected and redacted in seconds. 100% private." />
+
+<!-- ═══ STRUCTURED DATA — WebApplication ═══ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Maskr",
+  "url": "https://maskr.mestafa-vydad66.workers.dev/",
+  "description": "Free browser-based tool to redact screenshots and PDFs. Auto-detects and blurs emails, phone numbers, credit cards, IBANs, BIC codes, faces, weapons, and adult content. Nothing is ever uploaded — all processing runs locally in your browser.",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Any modern browser — Chrome, Firefox, Safari, Edge",
+  "browserRequirements": "Requires JavaScript. Works offline after first load.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": [
+    "Screenshot redaction with OCR",
+    "PDF redaction — text layer and scanned pages",
+    "Face detection and blurring",
+    "Email address redaction",
+    "Phone number redaction",
+    "Credit card number redaction (Luhn-validated)",
+    "IBAN and BIC/SWIFT code redaction",
+    "Sort code and account number redaction",
+    "URL redaction",
+    "Address and postcode redaction",
+    "Weapon detection",
+    "Adult content detection",
+    "QR code generator (URL, WiFi, contact)",
+    "Video redaction with object tracking",
+    "Multi-language OCR: English, French, Arabic",
+    "Block, blur and pixelate redaction styles",
+    "Undo/redo history",
+    "Offline-capable — works without internet after first load"
+  ],
+  "screenshot": "https://maskr.mestafa-wydad66.workers.dev/",
+  "softwareVersion": "0.10",
+  "releaseNotes": "v0.10 adds video redaction with IoU object tracking"
+}
+</script>
+
+<!-- ═══ STRUCTURED DATA — FAQPage (appears as rich result in Google) ═══ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Maskr free to use?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Maskr is completely free. No account, no subscription, no watermark, no hidden fees." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Maskr upload my files or images?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Maskr runs 100% in your browser using WebAssembly OCR (Tesseract.js) and on-device AI. Your screenshots, PDFs, and videos never leave your device and are never sent to any server." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I redact an email address in a screenshot?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Drop your screenshot into Maskr. It automatically scans the image with OCR and detects email addresses, phone numbers, credit card numbers, and more. Toggle what to redact and download the clean image — the whole process takes under 10 seconds." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Maskr redact an entire PDF?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Switch to the PDF tab and drop your PDF. Maskr processes every page — it reads the text layer for searchable PDFs and uses OCR for scanned pages — then exports a fully redacted PDF where sensitive data cannot be extracted." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Maskr detect faces and blur them?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Click 'Find faces' in the right panel after loading an image. Maskr uses MediaPipe BlazeFace running locally to detect faces and adds them as redactable boxes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use Maskr offline?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, after your first visit the app is served from your browser cache and works fully offline. The QR library is also cached locally after first use." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is GDPR redaction and does Maskr help?",
+      "acceptedAnswer": { "@type": "Answer", "text": "GDPR requires that personal data (names, emails, phone numbers, IBANs) is protected when sharing documents. Maskr automatically detects this data in screenshots and PDFs and blacks it out before you share, helping you stay compliant." }
+    }
+  ]
+}
+</script>
+
+<!-- ═══ THEME / ICONS ═══ -->
 <meta name="theme-color" content="#0a0a0a" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f4efe6'/%3E%3Cg transform='rotate(-6 50 50)'%3E%3Crect x='20' y='20' width='60' height='60' fill='%230a0a0a'/%3E%3Crect x='34' y='34' width='32' height='32' fill='%23ff4d2e'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
