@@ -157,6 +157,14 @@
   .pw-wrap{position:relative}
   .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px}
   .qr-status-row{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  /* UX polish */
+  .toggle{transition:background .15s,border-color .15s,opacity .15s}
+  .toggle.fresh{animation:pop .25s ease-out}
+  @keyframes pop{0%{transform:scale(.96);opacity:.6}100%{transform:scale(1);opacity:1}}
+  .panel{overflow-y:auto;max-height:calc(100vh - 120px)}
+  .shortcut-hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;opacity:.7}
+  .success-bar{margin-top:14px;padding:12px 16px;background:var(--paper-2);border-left:3px solid var(--accent-2);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);display:none}
+  .success-bar.show{display:block}
   /* Video tool */
   #videoTool{padding-top:32px}
   .vid-intro{margin-bottom:28px}.vid-intro h2{font-size:32px;font-weight:800;letter-spacing:-.02em}.vid-intro p{margin-top:8px;font-size:16px;color:var(--muted)}
@@ -256,6 +264,7 @@
       <div class="quality-row" id="qualityRow"><input type="range" id="qualitySlider" min="60" max="100" value="92" /><span id="qualityVal">92%</span></div>
       <div class="actions">
         <div class="undo-row"><button class="btn" id="undoBtn" disabled>↩ Undo</button><button class="btn" id="redoBtn" disabled>↪ Redo</button></div>
+        <div class="shortcut-hint">Ctrl+Z / Ctrl+Y &nbsp;·&nbsp; Right-click box to delete</div>
         <button class="btn primary" id="downloadBtn">↓ Download PNG</button>
         <button class="btn" id="copyBtn">Copy to clipboard</button>
         <button class="btn" id="imgResetBtn">Start over</button>
@@ -412,6 +421,7 @@
 
       <div class="actions" style="margin-top:4px">
         <button class="btn primary wide" id="vidProcessBtn">▶ Start processing</button>
+        <button class="btn wide" id="vidCancelBtn" style="display:none">✕ Cancel</button>
         <button class="btn wide" id="vidDownloadBtn" disabled>↓ Download redacted video</button>
         <button class="btn wide" id="vidResetBtn">Start over</button>
       </div>
@@ -762,7 +772,15 @@ fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFi
 ["dragleave","drop"].forEach(ev=>imgDropZone.addEventListener(ev,e=>{e.preventDefault();imgDropZone.classList.remove("dragover");}));
 imgDropZone.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)imgLoadFile(f);});
 window.addEventListener("paste",e=>{if(activeTool!=="image")return;for(const it of(e.clipboardData?.items||[])){if(it.type.startsWith("image/")){imgLoadFile(it.getAsFile());break;}}});
-langSelect.addEventListener("change",()=>{if(imgState.image)imgStartProcessing();});
+// Persist OCR language choice across sessions
+const _savedLang = localStorage.getItem("maskr_lang");
+if (_savedLang) { langSelect.value = _savedLang; pdfLangSelect.value = _savedLang; }
+langSelect.addEventListener("change",()=>{
+  localStorage.setItem("maskr_lang", langSelect.value);
+  pdfLangSelect.value = langSelect.value; // keep PDF in sync
+  if(imgState.image)imgStartProcessing();
+});
+pdfLangSelect.addEventListener("change",()=>{ localStorage.setItem("maskr_lang", pdfLangSelect.value); });
 
 function imgLoadFile(file){if(!file||!file.type.startsWith("image/")){imgShowError("Please drop an image file (PNG, JPG, WEBP).");return;}const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{imgState.image=img;imgStartProcessing();};img.onerror=()=>imgShowError("Couldn't read that image.");img.src=ev.target.result;};reader.onerror=()=>imgShowError("Couldn't read the file.");reader.readAsDataURL(file);}
 
@@ -779,6 +797,8 @@ async function imgStartProcessing(){
   findAdultBtn.textContent="⊕ Find adult content";findAdultBtn.disabled=false;
   canvas.width=imgState.image.naturalWidth;canvas.height=imgState.image.naturalHeight;ctx.drawImage(imgState.image,0,0);
   imgWork.classList.add("active");imgDropZone.style.display="none";
+  // Scroll work area into view so user doesn't have to hunt for it
+  requestAnimationFrame(()=>imgWork.scrollIntoView({behavior:"smooth",block:"nearest"}));
   const{canvas:ocrCanvas,scale}=preprocessForOcr(imgState.image);
   if(typeof Tesseract==="undefined"){imgShowError("OCR engine didn't load. Use Draw mode.");imgRenderTogglesAndCanvas();imgSetMode("draw");return;}
   let worker;
@@ -815,7 +835,7 @@ function imgRenderTogglesAndCanvas(){
   console.log(`Maskr: render — ${imgState.detections.length} detections, types: [${stateTypes.join(", ")}]`);
   toggleList.innerHTML="";let anyAuto=false;
   for(const [sub,pat] of Object.entries(PATTERNS)){
-    const count=counts[sub]||0;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sub]?"on":"off");if(count===0)row.style.opacity=0.35;
+    const count=counts[sub]||0;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sub]?"on":"off")+(count>0?" fresh":"");if(count===0)row.style.opacity=0.35;
     row.innerHTML=`<span class="label">${pat.label}</span><span class="count">${count}</span>`;
     row.addEventListener("click",()=>{if(!count)return;imgState.enabled[sub]=!imgState.enabled[sub];imgState.detections.forEach(d=>{if(d.type==="auto"&&d.subtype===sub)d.on=imgState.enabled[sub];});imgRenderTogglesAndCanvas();imgSaveHist();});
     toggleList.appendChild(row);if(count>0)anyAuto=true;
@@ -838,7 +858,12 @@ function imgRenderTogglesAndCanvas(){
   }
   const manualCount=imgState.detections.filter(d=>d.type==="manual").length;
   if(manualCount>0){const row=document.createElement("div");row.className="toggle on";row.innerHTML=`<span class="label">Manual boxes</span><span class="count">${manualCount}</span>`;row.addEventListener("click",()=>{if(!confirm("Remove all manually drawn boxes?"))return;imgState.detections=imgState.detections.filter(d=>d.type!=="manual");imgRenderTogglesAndCanvas();imgSaveHist();});toggleList.appendChild(row);}
-  if(!anyAuto&&!manualCount){const note=document.createElement("div");note.style.cssText="font-size:13px;color:var(--muted);padding:8px 4px;line-height:1.5;";note.textContent="Nothing detected. Use Draw mode or try a different OCR language.";toggleList.appendChild(note);}
+  if(!anyAuto&&!manualCount){
+    const note=document.createElement("div");
+    note.style.cssText="font-size:12px;color:var(--muted);padding:10px 12px;line-height:1.8;background:var(--paper);border:1px dashed var(--line);font-family:'JetBrains Mono',monospace";
+    note.innerHTML="Nothing detected automatically.<br/>→ Try a different OCR language<br/>→ Draw mode: drag to mark areas<br/>→ Find faces / weapons for visual scan";
+    toggleList.appendChild(note);
+  }
   manualHint.classList.toggle("show",anyAuto&&!manualCount);
   imgDrawCanvas();
 }
@@ -963,8 +988,8 @@ findAdultBtn.addEventListener("click",async()=>{
       findAdultBtn.textContent="Loading content safety model (~5 MB)…";
       // No version pin — nsfwjs@4.1.0 does not exist; let unpkg resolve latest
       await loadLib(["https://unpkg.com/nsfwjs/dist/nsfwjs.min.js","https://cdn.jsdelivr.net/npm/nsfwjs/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_latest");
-      // Load from the official NSFWJS model CDN (GCP bucket, stable since 2019)
-      nsfwModel=await nsfwjs.load("https://storage.googleapis.com/tmdata/nsfwjs/quant_nsfw_mobilenet/");
+      // Model is bundled inside the nsfwjs npm package — jsDelivr serves it with correct CORS headers
+      nsfwModel=await nsfwjs.load("https://cdn.jsdelivr.net/npm/nsfwjs/quant_nsfw_mobilenet/");
     }
     findAdultBtn.textContent="Analysing content…";
     console.log("Maskr: NSFWJS classification start, threshold",confidenceThreshold);
@@ -1177,6 +1202,8 @@ const vidProgressLbl = document.getElementById("vidProgressLabel");
 const vidProcessBtn  = document.getElementById("vidProcessBtn");
 const vidDownloadBtn = document.getElementById("vidDownloadBtn");
 const vidResetBtn    = document.getElementById("vidResetBtn");
+const vidCancelBtn   = document.getElementById("vidCancelBtn");
+vidCancelBtn.addEventListener("click", () => { vidProcessing = false; });
 const vidStyleSel    = document.getElementById("vidStyleSelect");
 const vidDetectEvery = document.getElementById("vidDetectEvery");
 const vidDetectEveryVal = document.getElementById("vidDetectEveryVal");
@@ -1282,6 +1309,7 @@ vidProcessBtn.addEventListener("click", async () => {
 async function runVideoRedaction(file) {
   vidProcessing = true;
   vidProcessBtn.disabled = true;
+  vidCancelBtn.style.display = "block";
   vidDownloadBtn.disabled = true;
   vidResultBlob = null;
 
@@ -1385,7 +1413,7 @@ async function runVideoRedaction(file) {
     vidProgressBar.style.width = (pct * 100).toFixed(1) + "%";
     const elapsed = (performance.now() - t0) / 1000;
     const eta = pct > 0.01 ? (elapsed / pct) * (1 - pct) : 0;
-    vidProgressLbl.textContent = `Frame ${frameNum+1}/${totalFrames} · ${(pct*100).toFixed(0)}% · ETA ${eta > 0 ? Math.ceil(eta)+"s" : "…"}`;
+    vidProgressLbl.textContent = `${(pct*100).toFixed(0)}% · frame ${frameNum+1}/${totalFrames} · ${vidTracks.length} area${vidTracks.length!==1?"s":""} tracked · ETA ${eta>0?Math.ceil(eta)+"s":"…"}`;
 
     frameNum++;
 
@@ -1403,6 +1431,7 @@ async function runVideoRedaction(file) {
   vidProgressLbl.textContent = `Done — ${(vidResultBlob.size / 1048576).toFixed(1)} MB · click Download`;
   vidDownloadBtn.disabled = false;
   vidProcessBtn.disabled = false;
+  vidCancelBtn.style.display = "none";
   vidProcessing = false;
   console.log(`Maskr Video: done, ${(vidResultBlob.size/1048576).toFixed(2)} MB`);
 }
@@ -1417,6 +1446,7 @@ vidDownloadBtn.addEventListener("click", () => {
 
 vidResetBtn.addEventListener("click", () => {
   vidProcessing = false; vidTracks = [];
+  vidCancelBtn.style.display = "none";
   vidResultBlob = null;
   vidProcessBtn._file = null;
   vidProcessBtn.disabled = false;
