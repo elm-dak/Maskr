@@ -6,6 +6,23 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.6 — 2026-05-29
+### Added
+- **QR Code Generator** — new QR tab. Supports URL, plain text, WiFi credentials (SSID/password/security/hidden), and vCard contacts. Size (S/M/L), error correction (L/M/Q), custom dark/light colors. Download PNG, copy to clipboard.
+
+## v0.5 — 2026-05-29
+### Added
+- **PDF Redactor** — new PDF tab. Drop any PDF (short or long), Maskr renders every page with PDF.js, OCRs each page with Tesseract.js, auto-detects the same patterns as the image tool (emails, phones, cards, IBANs, URLs, numbers), and exports a fully redacted PDF via pdf-lib. All in-browser.
+- Language selector for PDF OCR (same options as image tool).
+- First-page thumbnail preview during processing.
+- Detection counts per category across all pages with global on/off toggles.
+- Block / Blur / Pixelate redaction style applies to all pages.
+
+### Architecture
+- Shared detection engine (`detectFromOcrData`, `pushDetection`) used by both image and PDF tools.
+- Shared canvas redaction helpers (`applyRedactionToCtx`, `blurRegionInCtx`, `pixelateRegionInCtx`).
+- Tool tabs (Image / PDF / QR) replace single-page layout; paste still works in image tab only.
+
 ## v0.4 — 2026-05-28
 ### Added
 - **Undo / Redo** — Ctrl+Z / Ctrl+Y (or Cmd+Z / Cmd+Shift+Z on Mac). Dedicated panel buttons too. History is capped at 50 checkpoints.

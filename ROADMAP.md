@@ -10,6 +10,9 @@
 - v0.1 — Core OCR text redaction (emails, phones, cards, IBANs, URLs, numbers)
 - v0.2 — Multi-detection fix, OCR-tolerant matching, manual Draw mode, image pre-processing
 - v0.3 — Face detection (blur people)
+- v0.4 — Undo/redo, right-click to delete a box, multi-language OCR, JPG/WEBP export
+- v0.5 — PDF redactor (all pages, OCR + pattern detection, export redacted PDF)
+- v0.6 — QR code generator (URL, text, WiFi, contact/vCard; custom colors + size)
 
 ## Next up (near term)
 These are small, high-value, and keep the tool sharp:
