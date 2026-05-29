@@ -6,6 +6,41 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.8 — 2026-05-29
+### Fixed — QR generator
+- **Root cause**: `qrcode@1.5.3` was loaded via a `<script>` tag in `<head>` at page startup. The CDN path changed and the script failed silently, leaving `QRCode` undefined. The generator then showed the dead error message.
+- **Fix**: Removed all eager library `<script>` tags except Tesseract. QR library is now lazy-loaded on first QR tab use (or pre-warmed 2 s after page load in background) with: jsDelivr primary → unpkg fallback, 5 s timeout per CDN, auto-retry on failure, localStorage cache so subsequent visits work offline. Version pinned to `qrcode@1.5.4`.
+- Added visual QR engine status dot (green/yellow/red) in the tab bar and form header.
+- "Generate" now shows an inline Retry button on CDN failure — no more dead dead-end error text.
+- WiFi password field now has show/hide toggle.
+- Contrast ratio check (WCAG 4.5:1) warns when chosen colors won't scan reliably.
+- Added Organisation field to Contact/vCard form.
+
+### Fixed — PDF detection (was returning 0 items on all PDFs)
+- **Root cause**: The detection pipeline only called Tesseract OCR on rendered canvases. Text-based PDFs produce high-quality vector text that OCR handles poorly (OCR of rendered vector text is slow and inaccurate). The `detectFromOcrData` function was also not wired to receive the PDF's actual text content — it received OCR data from a poorly-rendered small canvas.
+- **Fix**: Implemented **two-mode per-page detection**:
+  - **Text-layer mode** — calls `page.getTextContent()`, groups items into lines by baseline Y, converts PDF coordinate space (Y-up) to canvas coordinate space (Y-down), builds a synthetic Tesseract-compatible data structure, and passes it through the same `detectFromOcrData` engine at `scale=1` (PDF-point coordinates). Detection coords are in 1× PDF-point space.
+  - **OCR fallback mode** — used when text content is <20 meaningful characters (scanned/image pages). Renders at `OCR_SCALE=2` (double resolution) and runs Tesseract, same as image tool.
+- Detection coordinates are always stored in 1× PDF-point space. During export, multiplied by `OCR_SCALE` to redact the 2× canvas correctly.
+- Added full console pipeline log: page size, mode chosen, text preview, detection list per page, total count.
+
+### Added — PDF multi-page preview
+- All pages rendered as thumbnails (scaled to max 300px width) and displayed in a scrollable left panel, each with a detection-count badge.
+- Page cleanup (`page.cleanup()`) after each page to prevent memory leaks on large PDFs.
+
+### Added — Library loading architecture
+- `loadLib(urls, globalName, cacheKey)` — unified loader: localStorage cache (30-day TTL, background refresh) → primary CDN (jsDelivr) → fallback CDN (unpkg), 5 s timeout per attempt.
+- QR library cached in localStorage after first successful load (works offline after first visit).
+- PDF.js and pdf-lib lazy-loaded on PDF tab activation (too large for localStorage cache).
+- Status dots in tab labels: green = loaded, yellow = loading, red = failed.
+- PDF engine pre-loaded in background when PDF tab is clicked.
+- QR engine pre-warmed 2 s after page load (background, not blocking).
+
+### Added — Test modes
+- `?test-pdf=1` — simulates the PDF text-layer pipeline against a built-in sample and logs `✓`/`✗` per pattern to console.
+
+---
+
 ## v0.7 — 2026-05-29
 ### Added
 - **BIC / SWIFT detection** — 8- or 11-char pattern (bank + country + location + optional branch), validated against a full ISO country-code set. Almost zero false positives.

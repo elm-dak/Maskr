@@ -10,26 +10,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Tesseract loaded eagerly — needed immediately by Image tab -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- All other heavy libs (pdf.js, pdf-lib, qrcode) are lazy-loaded with CDN fallback -->
 <script type="module">
   window.__loadFaceDetector = async function () {
     const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18");
     const { FaceDetector, FilesetResolver } = vision;
     const resolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
     return FaceDetector.createFromOptions(resolver, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-        delegate: "GPU"
-      },
+      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate: "GPU" },
       runningMode: "IMAGE", minDetectionConfidence: 0.5
     });
   };
 </script>
 <style>
-  :root { --ink:#0a0a0a;--paper:#f4efe6;--paper-2:#ebe4d6;--accent:#ff4d2e;--accent-2:#1a4d3a;--muted:#6b6258;--line:#d8cfbe; }
+  :root{--ink:#0a0a0a;--paper:#f4efe6;--paper-2:#ebe4d6;--accent:#ff4d2e;--accent-2:#1a4d3a;--muted:#6b6258;--line:#d8cfbe}
   *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
   body{font-family:'Fraunces',Georgia,serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;overflow-x:hidden;background-image:radial-gradient(at 10% 0%,rgba(255,77,46,.06) 0,transparent 50%),radial-gradient(at 90% 100%,rgba(26,77,58,.08) 0,transparent 50%)}
   .grain::before{content:"";position:fixed;inset:0;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.35'/></svg>");opacity:.08;pointer-events:none;mix-blend-mode:multiply;z-index:1000}
@@ -43,17 +39,23 @@
   .top-meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.15em}
   .top-meta .dot{display:inline-block;width:8px;height:8px;background:var(--accent-2);border-radius:50%;margin-right:6px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  /* Tabs */
   .tool-tabs{display:flex;margin-top:24px;border-bottom:2px solid var(--ink)}
-  .tool-tab{font-family:'JetBrains Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.15em;padding:12px 24px;background:transparent;border:none;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);margin-bottom:-2px;transition:color .15s,border-color .15s}
+  .tool-tab{font-family:'JetBrains Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.15em;padding:12px 24px;background:transparent;border:none;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);margin-bottom:-2px;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:8px}
   .tool-tab:hover{color:var(--ink)}.tool-tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+  .lib-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+  .lib-dot.ok{background:var(--accent-2)}.lib-dot.loading{background:#d4a017;animation:pulse 1s ease-in-out infinite}.lib-dot.err{background:var(--accent)}
+  /* Hero */
   .hero{padding:56px 0 40px;display:grid;grid-template-columns:1.3fr 1fr;gap:48px;align-items:end}
   .hero h2{font-size:clamp(44px,6.5vw,80px);font-weight:800;line-height:.94;letter-spacing:-.035em}
   .hero h2 .strike{position:relative;display:inline-block}
   .hero h2 .strike::after{content:"";position:absolute;left:-4px;right:-4px;top:52%;height:12px;background:var(--ink);transform:skewY(-2deg)}
   .hero h2 em{font-style:italic;color:var(--accent);font-weight:600}
   .hero p{font-size:18px;line-height:1.5;color:var(--muted);max-width:420px;border-left:3px solid var(--ink);padding-left:16px}
+  /* Lang row */
   .lang-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
   .lang-row select{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--paper-2);border:1px solid var(--line);color:var(--ink);padding:5px 8px;cursor:pointer}
+  /* Drop zones */
   .drop-zone{border:2px dashed var(--ink);background:var(--paper-2);padding:52px 28px;text-align:center;cursor:pointer;transition:background .2s,transform .2s}
   .drop-zone:hover{background:#e2dac8}.drop-zone.dragover{background:#ffe9e3;transform:scale(.99)}
   .drop-zone .dz-icon{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--muted);margin-bottom:12px}
@@ -61,12 +63,14 @@
   .drop-zone .dz-sub{margin-top:8px;font-size:14px;color:var(--muted)}
   .drop-zone .dz-hint{margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
   .drop-zone kbd{background:var(--ink);color:var(--paper);padding:2px 6px;border-radius:3px;font-family:inherit;font-size:10px}
+  /* Image work area */
   .work{display:none;margin-top:24px;grid-template-columns:1fr 320px;gap:24px}.work.active{display:grid}
   .canvas-wrap{background:var(--paper-2);border:1px solid var(--line);padding:16px;position:relative;min-height:320px;display:flex;align-items:center;justify-content:center}
   #canvas{max-width:100%;height:auto;display:block;background:white;box-shadow:0 16px 36px -18px rgba(0,0,0,.25);cursor:default}
   .mode-bar{position:absolute;top:16px;right:16px;display:flex;gap:4px;background:var(--paper);border:1px solid var(--line);padding:4px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;z-index:5}
   .mode-bar button{background:transparent;border:none;padding:6px 10px;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--ink);letter-spacing:inherit;text-transform:inherit}
   .mode-bar button.active{background:var(--ink);color:var(--paper)}
+  /* Panel */
   .panel{background:var(--paper-2);border:1px solid var(--line);padding:20px;display:flex;flex-direction:column;gap:16px;height:fit-content}
   .panel h3{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:10px}
   .toggle-list{display:flex;flex-direction:column;gap:6px}
@@ -84,21 +88,26 @@
   .quality-row span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);min-width:34px;text-align:right}
   .undo-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .actions{display:flex;gap:8px;flex-direction:column}
+  /* Buttons */
   .btn{padding:14px 18px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;border:1px solid var(--ink);background:var(--paper);cursor:pointer;transition:all .15s;font-weight:500}
   .btn:hover{background:var(--ink);color:var(--paper)}.btn.primary{background:var(--ink);color:var(--paper)}
   .btn.primary:hover{background:var(--accent);border-color:var(--accent);color:var(--ink)}
   .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}.btn.wide{width:100%}
   .face-btn{width:100%;border-style:dashed;background:var(--paper)}.face-btn.working{opacity:.6;cursor:wait}
+  /* Status */
   .status{margin-top:14px;padding:14px 16px;background:var(--paper-2);border-left:3px solid var(--accent);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);display:none}
   .status.show{display:block}.status .bar{height:3px;background:var(--line);margin-top:8px;overflow:hidden}
   .status .bar>div{height:100%;background:var(--accent);width:0%;transition:width .4s}.status.error{border-left-color:#c2410c}
   .hint{margin-top:10px;padding:10px 12px;font-size:13px;color:var(--muted);background:var(--paper);border:1px dashed var(--line);display:none}.hint.show{display:block}
-  /* PDF */
+  /* PDF tool */
   .pdf-work{display:none;margin-top:24px;grid-template-columns:1fr 320px;gap:24px}.pdf-work.active{display:grid}
-  .pdf-preview-box{background:var(--paper-2);border:1px solid var(--line);padding:24px;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
-  .pdf-thumb{max-width:100%;max-height:380px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:none}.pdf-thumb.show{display:block}
-  .pdf-stat{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);text-align:center;line-height:1.7}.pdf-stat strong{color:var(--ink)}
-  /* QR */
+  .pdf-pages-list{background:var(--paper-2);border:1px solid var(--line);padding:16px;overflow-y:auto;max-height:640px;display:flex;flex-direction:column;gap:16px;min-height:200px}
+  .pdf-page-item{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .pdf-page-thumb{max-width:100%;box-shadow:0 4px 16px rgba(0,0,0,.18);display:block}
+  .pdf-page-meta{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  .pdf-page-badge{background:var(--accent);color:var(--paper);padding:1px 8px;border-radius:99px;font-size:10px}
+  .pdf-page-badge.zero{background:var(--line);color:var(--muted)}
+  /* QR tool */
   #qrTool{padding-top:32px}
   .qr-intro{margin-bottom:24px}.qr-intro h2{font-size:32px;font-weight:800;letter-spacing:-.02em}
   .qr-intro p{margin-top:8px;font-size:16px;color:var(--muted)}
@@ -119,7 +128,10 @@
   .color-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .color-field{display:flex;align-items:center;gap:8px}
   .color-field input[type=color]{width:36px;height:36px;border:1px solid var(--line);padding:2px;background:var(--paper-2);cursor:pointer}
-  /* How */
+  .pw-wrap{position:relative}
+  .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px}
+  .qr-status-row{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  /* How steps */
   .how{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .how-step{padding:28px 24px;border-right:1px solid var(--line)}.how-step:last-child{border-right:none}
   .how-step .num{font-size:52px;font-weight:800;color:var(--accent);line-height:1;letter-spacing:-.04em}
@@ -127,7 +139,6 @@
   .how-step p{margin-top:6px;font-size:14px;color:var(--muted);line-height:1.5}
   footer.bottom{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);flex-wrap:wrap;gap:10px}
   footer.bottom .privacy{color:var(--accent-2);font-weight:700}
-  /* Debug overlay badge */
   .debug-badge{position:fixed;bottom:12px;right:12px;background:rgba(30,100,255,.85);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 8px;letter-spacing:.1em;text-transform:uppercase;z-index:9999;pointer-events:none}
   @media(max-width:860px){.hero,.work.active,.pdf-work.active,.qr-grid{grid-template-columns:1fr}.how{grid-template-columns:1fr}.how-step{border-right:none;border-bottom:1px solid var(--line)}.how-step:last-child{border-bottom:none}.qr-preview-box{position:static}}
 </style>
@@ -136,20 +147,17 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand">
-    <div class="logo-mark"></div>
-    <div><h1>Maskr</h1><small>v0.7 · privacy toolkit</small></div>
-  </div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.8 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
 <nav class="tool-tabs">
   <button class="tool-tab active" id="tabImage">Image</button>
-  <button class="tool-tab" id="tabPdf">PDF</button>
-  <button class="tool-tab" id="tabQr">QR Code</button>
+  <button class="tool-tab" id="tabPdf">PDF <span class="lib-dot" id="pdfLibDot" title="PDF engine status"></span></button>
+  <button class="tool-tab" id="tabQr">QR Code <span class="lib-dot" id="qrLibDot" title="QR engine status"></span></button>
 </nav>
 
-<!-- ═══ IMAGE TOOL ═══ -->
+<!-- ═══ IMAGE ═══ -->
 <section id="imageTool">
   <div class="hero">
     <div><h2>Share screenshots.<br/><span class="strike">Not your secrets.</span><br/><em>Auto-blur in 3 seconds.</em></h2></div>
@@ -181,31 +189,18 @@
       <div class="toggle-list" id="toggleList"></div>
       <button class="btn face-btn" id="findFacesBtn">⊕ Find faces</button>
       <button class="btn face-btn" id="findNamesBtn" style="margin-top:4px">⊕ Find names</button>
-      <div class="hint" id="manualHint">
-        Switch to <strong>Draw</strong> mode to drag boxes over anything missed.
-        <strong>Right-click</strong> any box to remove it.
-      </div>
+      <div class="hint" id="manualHint">Switch to <strong>Draw</strong> mode to drag boxes. <strong>Right-click</strong> any box to remove it.</div>
       <h3 style="margin-top:8px">Style</h3>
       <div class="style-select" id="imgStyleSelect">
-        <div class="style-opt active" data-style="block">Block</div>
-        <div class="style-opt" data-style="blur">Blur</div>
-        <div class="style-opt" data-style="pixel">Pixel</div>
+        <div class="style-opt active" data-style="block">Block</div><div class="style-opt" data-style="blur">Blur</div><div class="style-opt" data-style="pixel">Pixel</div>
       </div>
       <h3 style="margin-top:8px">Export</h3>
       <div class="style-select" id="fmtSelect">
-        <div class="style-opt active" data-fmt="png">PNG</div>
-        <div class="style-opt" data-fmt="jpg">JPG</div>
-        <div class="style-opt" data-fmt="webp">WEBP</div>
+        <div class="style-opt active" data-fmt="png">PNG</div><div class="style-opt" data-fmt="jpg">JPG</div><div class="style-opt" data-fmt="webp">WEBP</div>
       </div>
-      <div class="quality-row" id="qualityRow">
-        <input type="range" id="qualitySlider" min="60" max="100" value="92" />
-        <span id="qualityVal">92%</span>
-      </div>
+      <div class="quality-row" id="qualityRow"><input type="range" id="qualitySlider" min="60" max="100" value="92" /><span id="qualityVal">92%</span></div>
       <div class="actions">
-        <div class="undo-row">
-          <button class="btn" id="undoBtn" disabled>↩ Undo</button>
-          <button class="btn" id="redoBtn" disabled>↪ Redo</button>
-        </div>
+        <div class="undo-row"><button class="btn" id="undoBtn" disabled>↩ Undo</button><button class="btn" id="redoBtn" disabled>↪ Redo</button></div>
         <button class="btn primary" id="downloadBtn">↓ Download PNG</button>
         <button class="btn" id="copyBtn">Copy to clipboard</button>
         <button class="btn" id="imgResetBtn">Start over</button>
@@ -215,18 +210,18 @@
   <section class="how">
     <div class="how-step"><div class="num">01</div><h4>Drop</h4><p>Drag, paste, or click to upload. Nothing sent anywhere.</p></div>
     <div class="how-step"><div class="num">02</div><h4>Detect</h4><p>Local OCR finds emails, phones, IBANs, BIC, cards, sort codes, addresses.</p></div>
-    <div class="how-step"><div class="num">03</div><h4>Done</h4><p>Toggle, draw extra boxes, right-click to remove one, download.</p></div>
+    <div class="how-step"><div class="num">03</div><h4>Done</h4><p>Toggle, draw boxes, right-click to remove, download.</p></div>
   </section>
 </section>
 
-<!-- ═══ PDF TOOL ═══ -->
+<!-- ═══ PDF ═══ -->
 <section id="pdfTool" style="display:none">
   <div class="hero" style="padding-bottom:24px">
     <div><h2>Redact<br/><span class="strike">entire PDFs.</span><br/><em>Every page.</em></h2></div>
-    <p>Drop a PDF. Maskr OCR-scans every page, finds sensitive data, and exports a fully redacted PDF — all in your browser.</p>
+    <p>Drop a PDF. Maskr reads the text layer (or OCRs scanned pages), detects all sensitive data, and exports a fully redacted PDF — all in-browser.</p>
   </div>
   <div class="lang-row">
-    <span>OCR language</span>
+    <span>OCR language (scanned pages)</span>
     <select id="pdfLangSelect">
       <option value="eng">English</option><option value="fra">French</option>
       <option value="ara">Arabic</option><option value="eng+fra">English + French</option>
@@ -236,24 +231,19 @@
   <div class="drop-zone" id="pdfDropZone">
     <div class="dz-icon">— drop pdf here —</div>
     <div class="dz-big">Drop a PDF to redact</div>
-    <div class="dz-sub">All pages · browser-only · nothing uploaded</div>
-    <div class="dz-hint">Handles both short and long PDFs</div>
+    <div class="dz-sub">All pages · text-layer aware · browser-only · nothing uploaded</div>
+    <div class="dz-hint">Handles text-based and scanned PDFs</div>
     <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display:none" />
   </div>
   <div class="status" id="pdfStatus"><div id="pdfStatusText">Processing…</div><div class="bar"><div id="pdfStatusBar"></div></div></div>
   <div class="pdf-work" id="pdfWork">
-    <div class="pdf-preview-box">
-      <div class="pdf-stat" id="pdfStat"></div>
-      <canvas id="pdfThumb" class="pdf-thumb"></canvas>
-    </div>
+    <div class="pdf-pages-list" id="pdfPagesList"></div>
     <aside class="panel">
       <h3 id="pdfPanelTitle">Detected</h3>
       <div class="toggle-list" id="pdfToggleList"></div>
-      <h3 style="margin-top:8px">Style</h3>
+      <h3 style="margin-top:8px">Redaction style</h3>
       <div class="style-select" id="pdfStyleSelect">
-        <div class="style-opt active" data-style="block">Block</div>
-        <div class="style-opt" data-style="blur">Blur</div>
-        <div class="style-opt" data-style="pixel">Pixel</div>
+        <div class="style-opt active" data-style="block">Block</div><div class="style-opt" data-style="blur">Blur</div><div class="style-opt" data-style="pixel">Pixel</div>
       </div>
       <div class="actions" style="margin-top:8px">
         <button class="btn primary wide" id="pdfDownloadBtn" disabled>↓ Download Redacted PDF</button>
@@ -263,7 +253,7 @@
   </div>
 </section>
 
-<!-- ═══ QR TOOL ═══ -->
+<!-- ═══ QR ═══ -->
 <section id="qrTool" style="display:none">
   <div class="qr-intro"><h2>QR Code Generator</h2><p>Create QR codes for URLs, WiFi networks, contacts, or any text — instantly, in your browser.</p></div>
   <div class="qr-grid">
@@ -271,22 +261,27 @@
       <div class="field-group">
         <div class="field-label">Content type</div>
         <div class="qr-type-grid">
-          <div class="style-opt active" data-qrtype="url">URL</div>
-          <div class="style-opt" data-qrtype="text">Text</div>
-          <div class="style-opt" data-qrtype="wifi">WiFi</div>
-          <div class="style-opt" data-qrtype="contact">Contact</div>
+          <div class="style-opt active" data-qrtype="url">URL</div><div class="style-opt" data-qrtype="text">Text</div>
+          <div class="style-opt" data-qrtype="wifi">WiFi</div><div class="style-opt" data-qrtype="contact">Contact</div>
         </div>
       </div>
       <div id="qrUrlFields"><div class="field-group"><div class="field-label">URL</div><input class="field-input" id="qrUrl" type="url" placeholder="https://example.com" /></div></div>
       <div id="qrTextFields" style="display:none"><div class="field-group"><div class="field-label">Text</div><textarea class="field-textarea" id="qrText" placeholder="Enter any text…"></textarea></div></div>
       <div class="wifi-fields" id="qrWifiFields" style="display:none">
         <div class="field-group"><div class="field-label">Network name (SSID)</div><input class="field-input" id="wifiSsid" type="text" placeholder="MyNetwork" /></div>
-        <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="wifiPass" type="text" placeholder="password123" /></div>
-        <div class="field-group"><div class="field-label">Security</div><select class="field-select" id="wifiSec"><option value="WPA">WPA / WPA2</option><option value="WEP">WEP</option><option value="">No password</option></select></div>
+        <div class="field-group">
+          <div class="field-label">Password</div>
+          <div class="pw-wrap">
+            <input class="field-input" id="wifiPass" type="password" placeholder="password123" style="padding-right:40px" />
+            <button class="pw-toggle" id="wifiPassToggle" type="button" title="Show/hide password">👁</button>
+          </div>
+        </div>
+        <div class="field-group"><div class="field-label">Security</div><select class="field-select" id="wifiSec"><option value="WPA">WPA / WPA2</option><option value="WEP">WEP</option><option value="">No password (open)</option></select></div>
         <div class="field-group" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" id="wifiHidden" /><label for="wifiHidden" class="field-label" style="margin:0;cursor:pointer">Hidden network</label></div>
       </div>
       <div class="contact-fields" id="qrContactFields" style="display:none">
         <div class="field-group"><div class="field-label">Full name</div><input class="field-input" id="vcName" type="text" placeholder="Jane Smith" /></div>
+        <div class="field-group"><div class="field-label">Organisation (optional)</div><input class="field-input" id="vcOrg" type="text" placeholder="Acme Corp" /></div>
         <div class="field-group"><div class="field-label">Phone</div><input class="field-input" id="vcPhone" type="tel" placeholder="+1 555 123 4567" /></div>
         <div class="field-group"><div class="field-label">Email</div><input class="field-input" id="vcEmail" type="email" placeholder="jane@example.com" /></div>
         <div class="field-group"><div class="field-label">Website (optional)</div><input class="field-input" id="vcUrl" type="url" placeholder="https://jane.com" /></div>
@@ -295,11 +290,12 @@
         <div class="field-group"><div class="field-label">Size</div><div class="qr-size-btns" id="qrSizeSelect"><div class="style-opt" data-size="200">S</div><div class="style-opt active" data-size="300">M</div><div class="style-opt" data-size="500">L</div></div></div>
         <div class="field-group"><div class="field-label">Error correction</div><div class="qr-ec-btns" id="qrEcSelect"><div class="style-opt" data-ec="L">L</div><div class="style-opt active" data-ec="M">M</div><div class="style-opt" data-ec="Q">Q</div></div></div>
       </div>
-      <div class="field-group"><div class="field-label">Colors</div><div class="color-row"><div class="color-field"><input type="color" id="qrDark" value="#0a0a0a" /><span class="field-label" style="text-transform:none;letter-spacing:0">Dark</span></div><div class="color-field"><input type="color" id="qrLight" value="#f4efe6" /><span class="field-label" style="text-transform:none;letter-spacing:0">Light</span></div></div></div>
+      <div class="field-group"><div class="field-label">Colors</div><div class="color-row"><div class="color-field"><input type="color" id="qrDark" value="#0a0a0a" /><span class="field-label" style="text-transform:none;letter-spacing:0">Dark</span></div><div class="color-field"><input type="color" id="qrLight" value="#f4efe6" /><span class="field-label" style="text-transform:none;letter-spacing:0">Light</span></div></div><div id="qrContrastWarn" style="display:none;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent)">⚠ Low contrast — QR may not scan reliably</div></div>
+      <div class="qr-status-row"><span class="lib-dot" id="qrFormDot"></span><span id="qrLibStatus">QR engine loading…</span></div>
       <button class="btn primary" id="qrGenerateBtn">Generate QR</button>
     </div>
     <div class="qr-preview-box">
-      <div class="qr-empty" id="qrEmpty">Fill in the fields on the left<br/>and click Generate</div>
+      <div class="qr-empty" id="qrEmpty">Fill in the fields<br/>and click Generate</div>
       <canvas id="qrCanvas" style="display:none"></canvas>
       <div class="actions" id="qrActions" style="display:none;width:100%">
         <button class="btn primary wide" id="qrDownloadBtn">↓ Download PNG</button>
@@ -313,347 +309,307 @@
   <div>© Maskr — open & free · by Taskflow team</div>
   <div class="privacy">★ Zero uploads. Zero tracking. Zero servers.</div>
 </footer>
-</div><!-- /.wrap -->
+</div>
 
 <script>
 /* ===========================================================
-   Maskr v0.7 — browser-only privacy toolkit
-   Image · PDF · QR  |  debug: ?debug=1  |  test: ?test=1
+   Maskr v0.8
+   Image · PDF (text-layer + OCR) · QR  |  ?debug=1  ?test=1  ?test-pdf=1
 =========================================================== */
 
-/* ─── URL params ─── */
-const DEBUG_MODE = new URLSearchParams(location.search).get("debug") === "1";
-const TEST_MODE  = new URLSearchParams(location.search).get("test")  === "1";
-if (DEBUG_MODE) { const b = document.createElement("div"); b.className="debug-badge"; b.textContent="debug mode"; document.body.appendChild(b); }
+const DEBUG_MODE   = new URLSearchParams(location.search).get("debug")    === "1";
+const TEST_MODE    = new URLSearchParams(location.search).get("test")      === "1";
+const TEST_PDF_MODE= new URLSearchParams(location.search).get("test-pdf")  === "1";
+if (DEBUG_MODE) { const b=document.createElement("div");b.className="debug-badge";b.textContent="debug";document.body.appendChild(b); }
 
-/* ─── PDF.js worker ─── */
-if (typeof pdfjsLib !== "undefined")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-
-/* ─── IBAN country codes (ISO 3166-1 that use IBAN) ─── */
-const IBAN_COUNTRIES = new Set(["AD","AE","AL","AT","AZ","BA","BE","BG","BH","BR","BY","CH","CR","CY","CZ","DE","DK","DO","EE","EG","ES","FI","FO","FR","GB","GE","GI","GL","GR","GT","HR","HU","IE","IL","IQ","IS","IT","JO","KW","KZ","LB","LC","LI","LK","LT","LU","LV","MA","MC","MD","ME","MK","MR","MT","MU","MZ","NL","NO","PK","PL","PS","PT","QA","RO","RS","SA","SC","SD","SE","SI","SK","SM","ST","SV","TL","TN","TR","UA","VA","VG","XK"]);
-
-/* ─── BIC/SWIFT country codes ─── */
-const BIC_COUNTRIES = new Set(["AD","AE","AF","AL","AM","AO","AR","AT","AU","AZ","BA","BB","BD","BE","BF","BG","BH","BJ","BN","BO","BR","BS","BT","BW","BY","BZ","CA","CD","CF","CG","CH","CI","CM","CN","CO","CR","CU","CV","CY","CZ","DE","DJ","DK","DM","DO","DZ","EC","EE","EG","ES","ET","FI","FJ","FR","GA","GB","GD","GE","GH","GI","GL","GM","GN","GQ","GR","GT","GW","GY","HK","HN","HR","HT","HU","ID","IE","IL","IN","IQ","IR","IS","IT","JM","JO","JP","KE","KG","KH","KM","KN","KR","KW","KY","KZ","LA","LB","LC","LI","LK","LR","LS","LT","LU","LV","LY","MA","MC","MD","ME","MG","MK","ML","MM","MN","MO","MR","MT","MU","MV","MW","MX","MY","MZ","NA","NE","NG","NI","NL","NO","NP","NR","NZ","OM","PA","PE","PG","PH","PK","PL","PT","PW","PY","QA","RO","RS","RU","RW","SA","SB","SC","SD","SE","SG","SI","SK","SL","SM","SN","SO","SR","ST","SV","SY","SZ","TD","TG","TH","TJ","TL","TM","TN","TO","TR","TT","TW","TZ","UA","UG","US","UY","UZ","VC","VE","VG","VN","VU","WS","YE","ZA","ZM","ZW"]);
-
-/* ─── Context label dictionaries (multilingual) ─── */
-const CONTEXT_LABELS = {
-  phone:   ["phone","tel","téléphone","tél","portable","mobile","cell","whatsapp","الهاتف","هاتف","جوال","teléfono","móvil","celular","fax","gsm","contact"],
-  account: ["account","acct","a/c","acc","compte","numéro","حساب","cuenta","nr","no.","number"],
-  iban:    ["iban"],
-  bic:     ["bic","swift","swift/bic","code bic","bank code"],
-  sortcode:["sort code","sort","sc","routing"],
-  address: ["street","rue","avenue","boulevard","road","drive","lane","place","addr","address","adresse","عنوان","dirección","ville","city","postal","postcode","zip"],
-  email:   ["email","e-mail","courriel","البريد","correo","mail"]
+/* ─── Library loading with CDN fallback + localStorage cache ─── */
+const LIB_URLS = {
+  pdfjsMain:   ["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",        "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"],
+  pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js",
+  pdfLib:      ["https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",          "https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"],
+  qrcode:      ["https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js",            "https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"],
 };
+const CACHE_TTL = 30 * 24 * 3600 * 1000; // 30 days
 
-/* ─── Financial document keyword heuristic ─── */
-const FINANCIAL_KEYWORDS = ["account","iban","statement","invoice","receipt","amount","balance","transaction","cheque","check","swift","bic","sort code","payment","debit","credit","bank"];
-
-/* ─── Pattern definitions ─── */
-const PATTERNS = {
-  email: {
-    label: "Email",
-    regex: () => /[a-zA-Z0-9._%+\-]+\s?@\s?[a-zA-Z0-9.\-]+\s?\.\s?[a-zA-Z]{2,}/g,
-    defaultOn: true, normalize: true
-  },
-  phone: {
-    label: "Phone",
-    // Contextual: always match if +/00 international prefix, else require label on same line
-    regex: () => /(?:(?:\+|00)\d{1,3}[\s.\-]?)?(?:\(?\d{2,4}\)?[\s.\-]?){1,3}\d{3,5}/g,
-    defaultOn: true, minDigits: 9, maxDigits: 15,
-    validate: (s, line) => {
-      if (/^(\+|00)/.test(s.trim())) return true;
-      return lineHasLabel(line, CONTEXT_LABELS.phone);
-    }
-  },
-  creditcard: {
-    label: "Card number",
-    regex: () => /(?:\d[ \-]?){13,19}/g,
-    defaultOn: true, validate: s => luhnCheck(s.replace(/\D/g,""))
-  },
-  iban: {
-    label: "IBAN",
-    // Matches spaced IBANs like GB82 WEST 1234 5678 9012 34
-    regex: () => /\b([A-Z]{2})\d{2}(?:\s?[A-Z0-9]{4}){2,8}\s?[A-Z0-9]{0,4}\b/g,
-    defaultOn: true,
-    validate: s => {
-      const v = s.replace(/\s/g,"").toUpperCase();
-      if (v.length < 15 || v.length > 34) return false;
-      if (!IBAN_COUNTRIES.has(v.slice(0,2))) return false;
-      return validateIban(v);
-    }
-  },
-  bic: {
-    label: "BIC / SWIFT",
-    regex: () => /\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/g,
-    defaultOn: true,
-    validate: s => (s.length === 8 || s.length === 11) && BIC_COUNTRIES.has(s.slice(4,6))
-  },
-  sortcode: {
-    label: "Sort code",
-    // Match hyphen or space separated: 12-34-56 or 12 34 56
-    regex: () => /\b\d{2}[-\s]\d{2}[-\s]\d{2}\b/g,
-    defaultOn: true
-  },
-  account: {
-    label: "Account number",
-    regex: () => /\b\d{7,10}\b/g,
-    defaultOn: true,
-    validate: (s, line) => lineHasLabel(line, CONTEXT_LABELS.account)
-  },
-  url: {
-    label: "URL",
-    regex: () => /(?:https?:\/\/|www\.)[^\s]+/g,
-    defaultOn: false
-  },
-  address: {
-    label: "Postcode / ZIP",
-    // UK: SW1A 1AA  |  Canadian: K1A 0B1  |  US: 12345 or 12345-6789 (with context)
-    regex: () => /\b[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}\b|\b[ABCEGHJKLMNPRSTVXY][0-9][ABCEGHJKLMNPRSTVWXYZ]\s?[0-9][ABCEGHJKLMNPRSTVWXYZ][0-9]\b|\b\d{5}(?:-\d{4})?\b/g,
-    defaultOn: false,
-    validate: (s, line) => {
-      if (/^\d/.test(s.replace(/\s/g,""))) return lineHasLabel(line, CONTEXT_LABELS.address);
-      return true;
-    }
-  },
-  longnum: {
-    label: "Long numbers",
-    regex: () => /\b\d{7,}\b/g,
-    defaultOn: false
-  }
-};
-
-/* ─── Utility functions ─── */
-function luhnCheck(num) {
-  if (!num || num.length < 12 || num.length > 19) return false;
-  let sum = 0, alt = false;
-  for (let i = num.length-1; i >= 0; i--) {
-    let n = parseInt(num[i],10);
-    if (alt) { n *= 2; if (n > 9) n -= 9; }
-    sum += n; alt = !alt;
-  }
-  return sum % 10 === 0;
-}
-
-function validateIban(iban) {
-  // Mod-97 checksum: rearrange, convert letters to numbers, check % 97 === 1
-  const r = (iban.slice(4) + iban.slice(0,4)).replace(/[A-Z]/g, c => c.charCodeAt(0)-55);
-  let rem = 0n;
-  for (const ch of r) rem = (rem * 10n + BigInt(ch)) % 97n;
-  return rem === 1n;
-}
-
-function normalizeForOcr(raw) {
-  let out = "", s = raw; const map = []; let i = 0;
-  while (i < s.length) {
-    const rest = s.slice(i);
-    const m = rest.match(/^(\(\s*at\s*\)|\[\s*at\s*\])/i);
-    if (m) { out += "@"; map.push(i); i += m[0].length; continue; }
-    let ch = s[i]; if (ch === ",") ch = ".";
-    out += ch; map.push(i); i++;
-  }
-  return { text: out, map };
-}
-
-function lineHasLabel(lineText, labels) {
-  if (!lineText) return false;
-  const lower = lineText.toLowerCase();
-  return labels.some(l => lower.includes(l));
-}
-
-function isValidMatch(pat, str, lineText = "") {
-  if (pat.minDigits || pat.maxDigits) {
-    const d = str.replace(/\D/g,"").length;
-    if (pat.minDigits && d < pat.minDigits) return false;
-    if (pat.maxDigits && d > pat.maxDigits) return false;
-  }
-  if (pat.validate && !pat.validate(str, lineText)) return false;
-  return true;
-}
-
-function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-/* ─── Shared detection engine ─── */
-// Returns raw detection objects { subtype, text, x, y, w, h, on } in 1x coords.
-// Also populates ocrWordsOut (if provided) for debug overlay.
-function detectFromOcrData(data, scale, ocrWordsOut) {
-  const lines = [], words = [];
-  for (const block of (data.blocks||[]))
-    for (const para of (block.paragraphs||[]))
-      for (const line of (para.lines||[])) {
-        lines.push(line);
-        for (const w of (line.words||[])) {
-          words.push(w);
-          if (ocrWordsOut) ocrWordsOut.push({ text: w.text, bbox: w.bbox, scale });
-        }
-      }
-
-  // Financial document heuristic — auto-enable long numbers
-  const fullTextLower = lines.map(l => l.text||"").join(" ").toLowerCase();
-  const isFinancial = FINANCIAL_KEYWORDS.some(k => fullTextLower.includes(k));
-
-  const found = [];
-  for (const [subtype, pat] of Object.entries(PATTERNS)) {
-    for (const line of lines) {
-      const rawText = line.text || "";
-      if (!rawText.trim()) continue;
-      const { text: normText, map } = pat.normalize
-        ? normalizeForOcr(rawText)
-        : { text: rawText, map: rawText.split("").map((_,i)=>i) };
-      const re = pat.regex();
-      let m;
-      while ((m = re.exec(normText)) !== null) {
-        const matchStr = m[0], ns = m.index, ne = m.index + matchStr.length;
-        if (re.lastIndex === ns) re.lastIndex++;
-        if (!isValidMatch(pat, matchStr, rawText)) continue;
-        const rs = map[ns] ?? 0, re2 = (map[ne-1] ?? rawText.length-1) + 1;
-        const ws2 = matchWordsInLine(line, rs, re2);
-        if (!ws2.length) continue;
-        // Address: use full line bbox to cover street + postcode
-        const box = (subtype === "address" && line.bbox)
-          ? line.bbox
-          : unionBoxes(ws2.map(w => w.bbox));
-        pushDetection(found, subtype, matchStr.replace(/\s/g,""), box, scale);
-      }
-    }
-    // Word-level fallback (not for contextual patterns — they need full line text)
-    if (!pat.validate || pat.validate.length < 2) {
-      for (const w of words) {
-        const t = w.text||""; if (!t.trim()) continue;
-        const { text: nt } = pat.normalize ? normalizeForOcr(t) : { text: t };
-        const re = pat.regex(); let m;
-        while ((m = re.exec(nt)) !== null) {
-          const ms = m[0]; if (re.lastIndex===m.index) re.lastIndex++;
-          if (!isValidMatch(pat, ms, t)) continue;
-          if (w.bbox) pushDetection(found, subtype, ms.replace(/\s/g,""), w.bbox, scale);
-        }
-      }
-    }
-  }
-  return { found, isFinancial };
-}
-
-function pushDetection(arr, subtype, text, box, scale) {
-  const x = box.x0/scale, y = box.y0/scale;
-  const w = (box.x1-box.x0)/scale, h = (box.y1-box.y0)/scale;
-  if (w <= 0 || h <= 0) return;
-  for (const d of arr) {
-    if (d.subtype !== subtype) continue;
-    if (overlapRatio(d,{x,y,w,h}) > 0.6) {
-      const x2=Math.max(d.x+d.w,x+w), y2=Math.max(d.y+d.h,y+h);
-      d.x=Math.min(d.x,x); d.y=Math.min(d.y,y); d.w=x2-d.x; d.h=y2-d.y;
-      return;
-    }
-  }
-  arr.push({ subtype, text, x, y, w, h, on: true });
-}
-
-function overlapRatio(a,b) {
-  const ix=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));
-  const iy=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
-  const inter=ix*iy; return inter?inter/Math.min(a.w*a.h,b.w*b.h):0;
-}
-
-function matchWordsInLine(line, start, end) {
-  const matched=[], ws=line.words||[], text=line.text||""; let from=0;
-  for (const word of ws) {
-    const wt=word.text||""; if (!wt) continue;
-    let idx=text.indexOf(wt,from); if (idx===-1) idx=from;
-    const wEnd=idx+wt.length; from=wEnd;
-    if (wEnd>start && idx<end) matched.push(word);
-  }
-  return matched;
-}
-
-function unionBoxes(boxes) {
-  return boxes.reduce((a,b)=>({x0:Math.min(a.x0,b.x0),y0:Math.min(a.y0,b.y0),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)}),{x0:Infinity,y0:Infinity,x1:-Infinity,y1:-Infinity});
-}
-
-/* ─── Shared canvas redaction helpers ─── */
-function applyRedactionToCtx(ctx2, srcCanvas, x, y, w, h, style) {
-  const pad = Math.max(2, Math.round(h*0.1));
-  x=Math.max(0,x-pad); y=Math.max(0,y-pad);
-  w=Math.min(srcCanvas.width-x,w+pad*2); h=Math.min(srcCanvas.height-y,h+pad*2);
-  if (w<=0||h<=0) return;
-  if (style==="block") { ctx2.fillStyle="#000"; ctx2.fillRect(x,y,w,h); }
-  else if (style==="blur") blurRgn(ctx2,srcCanvas,x,y,w,h,Math.max(8,Math.round(h*0.6)));
-  else pixelRgn(ctx2,srcCanvas,x,y,w,h,Math.max(6,Math.round(h*0.35)));
-}
-
-function blurRgn(ctx2,src,x,y,w,h,r) {
-  const off=document.createElement("canvas"); off.width=w; off.height=h;
-  const oc=off.getContext("2d"); oc.filter=`blur(${r}px)`;
-  oc.drawImage(src,x-r,y-r,w+r*2,h+r*2,-r,-r,w+r*2,h+r*2);
-  ctx2.drawImage(off,x,y);
-}
-
-function pixelRgn(ctx2,src,x,y,w,h,size) {
-  const off=document.createElement("canvas");
-  off.width=Math.max(1,Math.floor(w/size)); off.height=Math.max(1,Math.floor(h/size));
-  const oc=off.getContext("2d"); oc.imageSmoothingEnabled=false;
-  oc.drawImage(src,x,y,w,h,0,0,off.width,off.height);
-  ctx2.imageSmoothingEnabled=false;
-  ctx2.drawImage(off,0,0,off.width,off.height,x,y,w,h);
-  ctx2.imageSmoothingEnabled=true;
-}
-
-function dataUrlToBytes(dataUrl) {
-  const bin=atob(dataUrl.split(",")[1]); const out=new Uint8Array(bin.length);
-  for (let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i); return out;
-}
-
-/* ═══════════════════════════════════════════════════════
-   TOOL SWITCHING
-═══════════════════════════════════════════════════════ */
-let activeTool = "image";
-const TAB_EL  = {image:"tabImage",   pdf:"tabPdf",  qr:"tabQr"};
-const SECT_EL = {image:"imageTool",  pdf:"pdfTool", qr:"qrTool"};
-function switchTool(t) {
-  activeTool = t;
-  ["image","pdf","qr"].forEach(n => {
-    document.getElementById(TAB_EL[n]).classList.toggle("active", n === t);
-    document.getElementById(SECT_EL[n]).style.display = n === t ? "" : "none";
+function loadScriptTag(url, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script"); s.src = url;
+    const t = setTimeout(() => { s.remove(); reject(new Error("timeout:"+ url)); }, timeoutMs);
+    s.onload  = () => { clearTimeout(t); resolve(); };
+    s.onerror = () => { clearTimeout(t); s.remove(); reject(new Error("load-err:"+ url)); };
+    document.head.appendChild(s);
   });
 }
-document.getElementById("tabImage").addEventListener("click", () => switchTool("image"));
-document.getElementById("tabPdf").addEventListener("click",   () => switchTool("pdf"));
-document.getElementById("tabQr").addEventListener("click",    () => switchTool("qr"));
 
-/* ═══════════════════════════════════════════════════════
-   IMAGE TOOL
-═══════════════════════════════════════════════════════ */
-const imgState = { image:null, detections:[], style:"block", enabled:{}, mode:"auto", drawing:false, drawStart:null };
-const imgHist=[]; let imgHistPos=-1;
-let lastOcrWords=[], lastOcrScale=1;   // for debug overlay + names NER
-let facesScanned=false, namesScanned=false, nlpLib=null;
-let faceDetector=null;
-let exportFormat="png", exportQuality=0.92;
-
-function imgSaveHist() {
-  imgHist.splice(imgHistPos+1);
-  imgHist.push({detections:JSON.parse(JSON.stringify(imgState.detections)),enabled:JSON.parse(JSON.stringify(imgState.enabled))});
-  if (imgHist.length>50){imgHist.shift();imgHistPos=imgHist.length-1;}else{imgHistPos++;}
-  syncUndoRedo();
+function injectInlineScript(code) {
+  const s = document.createElement("script"); s.textContent = code;
+  document.head.appendChild(s);
 }
+
+async function loadLib(urls, globalName, cacheKey) {
+  if (window[globalName]) return window[globalName];
+  // Check localStorage cache
+  if (cacheKey) {
+    try {
+      const raw = localStorage.getItem("maskr_lib_" + cacheKey);
+      if (raw) {
+        const { code, ts } = JSON.parse(raw);
+        if (Date.now() - ts < CACHE_TTL) {
+          injectInlineScript(code);
+          if (window[globalName]) {
+            // Background refresh if >80% of TTL elapsed
+            if (Date.now() - ts > CACHE_TTL * 0.8) backgroundRefreshLib(urls[0], cacheKey);
+            return window[globalName];
+          }
+        }
+      }
+    } catch(_) {}
+  }
+  // Try each URL in order
+  for (const url of (Array.isArray(urls) ? urls : [urls])) {
+    try {
+      await loadScriptTag(url, 5000);
+      if (window[globalName]) {
+        if (cacheKey) cacheLibInBackground(url, cacheKey);
+        return window[globalName];
+      }
+    } catch(_) { /* try next */ }
+  }
+  throw new Error("All CDN sources failed for " + (cacheKey || globalName));
+}
+
+function backgroundRefreshLib(url, cacheKey) {
+  fetch(url).then(r => r.text()).then(code => {
+    try { localStorage.setItem("maskr_lib_" + cacheKey, JSON.stringify({ code, ts: Date.now() })); } catch(_) {}
+  }).catch(() => {});
+}
+function cacheLibInBackground(url, cacheKey) {
+  fetch(url).then(r => r.text()).then(code => {
+    try { localStorage.setItem("maskr_lib_" + cacheKey, JSON.stringify({ code, ts: Date.now() })); } catch(_) {}
+  }).catch(() => {});
+}
+
+/* ─── Library state dots ─── */
+const pdfLibDot  = document.getElementById("pdfLibDot");
+const qrLibDot   = document.getElementById("qrLibDot");
+const qrFormDot  = document.getElementById("qrFormDot");
+const qrLibStat  = document.getElementById("qrLibStatus");
+
+function setDot(dot, state) { // state: 'loading'|'ok'|'err'
+  dot.className = "lib-dot " + state;
+}
+
+/* ─── PDF.js setup ─── */
+let pdfJsLoaded = false;
+async function ensurePdfJs() {
+  if (pdfJsLoaded) return;
+  setDot(pdfLibDot, "loading");
+  try {
+    await loadLib(LIB_URLS.pdfjsMain, "pdfjsLib", null); // too large to cache
+    pdfjsLib.GlobalWorkerOptions.workerSrc = LIB_URLS.pdfjsWorker;
+    pdfJsLoaded = true;
+    setDot(pdfLibDot, "ok");
+  } catch(err) {
+    setDot(pdfLibDot, "err");
+    throw err;
+  }
+}
+
+/* ─── pdf-lib setup ─── */
+let pdfLibLoaded = false;
+async function ensurePdfLib() {
+  if (pdfLibLoaded) return;
+  await loadLib(LIB_URLS.pdfLib, "PDFLib", null);
+  pdfLibLoaded = true;
+}
+
+/* ─── QR library setup ─── */
+let qrLibReady = false;
+async function ensureQrLib() {
+  if (qrLibReady) return;
+  setDot(qrFormDot, "loading"); setDot(qrLibDot, "loading");
+  qrLibStat.textContent = "Loading QR engine…";
+  try {
+    await loadLib(LIB_URLS.qrcode, "QRCode", "qrcode_1_5_4");
+    qrLibReady = true;
+    setDot(qrFormDot, "ok"); setDot(qrLibDot, "ok");
+    qrLibStat.textContent = "QR engine ready";
+  } catch(err) {
+    setDot(qrFormDot, "err"); setDot(qrLibDot, "err");
+    qrLibStat.textContent = "Failed to load — click Retry";
+    throw err;
+  }
+}
+
+/* ─── Detection constants ─── */
+const IBAN_COUNTRIES = new Set(["AD","AE","AL","AT","AZ","BA","BE","BG","BH","BR","BY","CH","CR","CY","CZ","DE","DK","DO","EE","EG","ES","FI","FO","FR","GB","GE","GI","GL","GR","GT","HR","HU","IE","IL","IQ","IS","IT","JO","KW","KZ","LB","LC","LI","LK","LT","LU","LV","MA","MC","MD","ME","MK","MR","MT","MU","MZ","NL","NO","PK","PL","PS","PT","QA","RO","RS","SA","SC","SD","SE","SI","SK","SM","ST","SV","TL","TN","TR","UA","VA","VG","XK"]);
+const BIC_COUNTRIES  = new Set(["AD","AE","AF","AL","AM","AO","AR","AT","AU","AZ","BA","BB","BD","BE","BF","BG","BH","BJ","BN","BO","BR","BS","BY","CA","CD","CF","CH","CI","CM","CN","CO","CR","CU","CY","CZ","DE","DK","DM","DO","DZ","EC","EE","EG","ES","ET","FI","FJ","FR","GA","GB","GE","GH","GI","GL","GM","GR","GT","GW","HK","HN","HR","HU","ID","IE","IL","IN","IQ","IS","IT","JM","JO","JP","KE","KR","KW","KZ","LB","LC","LI","LK","LT","LU","LV","LY","MA","MC","MD","ME","MG","MK","MR","MT","MU","MX","MY","MZ","NA","NG","NL","NO","NZ","OM","PA","PE","PH","PK","PL","PT","QA","RO","RS","RU","SA","SC","SD","SE","SG","SK","SM","SN","SR","ST","SV","TN","TR","TT","TZ","UA","US","UZ","VC","VG","VN","ZA","ZM","ZW"]);
+const CONTEXT_LABELS = {
+  phone:   ["phone","tel","téléphone","tél","portable","mobile","cell","whatsapp","الهاتف","هاتف","جوال","teléfono","móvil","celular","fax","gsm"],
+  account: ["account","acct","a/c","acc","compte","numéro","حساب","cuenta","nr","no.","number"],
+  iban:    ["iban"],
+  bic:     ["bic","swift","swift/bic"],
+  sortcode:["sort code","sort","routing"],
+  address: ["street","rue","avenue","road","addr","address","adresse","postal","postcode","zip","city","ville"]
+};
+const FINANCIAL_KEYWORDS = ["account","iban","statement","invoice","receipt","balance","transaction","cheque","check","swift","bic","sort code","payment","debit","credit","bank"];
+
+const PATTERNS = {
+  email:      { label:"Email",          regex:()=>/[a-zA-Z0-9._%+\-]+\s?@\s?[a-zA-Z0-9.\-]+\s?\.\s?[a-zA-Z]{2,}/g, defaultOn:true,  normalize:true },
+  phone:      { label:"Phone",          regex:()=>/(?:(?:\+|00)\d{1,3}[\s.\-]?)?(?:\(?\d{2,4}\)?[\s.\-]?){1,3}\d{3,5}/g, defaultOn:true,  minDigits:9, maxDigits:15, validate:(s,ln)=>(/^(\+|00)/.test(s.trim()))||lineHasLabel(ln,CONTEXT_LABELS.phone) },
+  creditcard: { label:"Card number",    regex:()=>/(?:\d[ \-]?){13,19}/g, defaultOn:true,  validate:s=>luhnCheck(s.replace(/\D/g,"")) },
+  iban:       { label:"IBAN",           regex:()=>/\b([A-Z]{2})\d{2}(?:\s?[A-Z0-9]{4}){2,8}\s?[A-Z0-9]{0,4}\b/g, defaultOn:true,  validate:s=>{const v=s.replace(/\s/g,"").toUpperCase();return v.length>=15&&v.length<=34&&IBAN_COUNTRIES.has(v.slice(0,2))&&validateIban(v);} },
+  bic:        { label:"BIC / SWIFT",    regex:()=>/\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/g, defaultOn:true,  validate:s=>(s.length===8||s.length===11)&&BIC_COUNTRIES.has(s.slice(4,6)) },
+  sortcode:   { label:"Sort code",      regex:()=>/\b\d{2}[-\s]\d{2}[-\s]\d{2}\b/g, defaultOn:true },
+  account:    { label:"Account number", regex:()=>/\b\d{7,10}\b/g, defaultOn:true,  validate:(s,ln)=>lineHasLabel(ln,CONTEXT_LABELS.account) },
+  url:        { label:"URL",            regex:()=>/(?:https?:\/\/|www\.)[^\s]+/g,    defaultOn:false },
+  address:    { label:"Postcode / ZIP", regex:()=>/\b[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}\b|\b[ABCEGHJKLMNPRSTVXY][0-9][ABCEGHJKLMNPRSTVWXYZ]\s?[0-9][ABCEGHJKLMNPRSTVWXYZ][0-9]\b|\b\d{5}(?:-\d{4})?\b/g, defaultOn:false, validate:(s,ln)=>(/^\d/.test(s.replace(/\s/g,"")))?lineHasLabel(ln,CONTEXT_LABELS.address):true },
+  longnum:    { label:"Long numbers",   regex:()=>/\b\d{7,}\b/g, defaultOn:false }
+};
+
+function luhnCheck(num){if(!num||num.length<12||num.length>19)return false;let s=0,a=false;for(let i=num.length-1;i>=0;i--){let n=parseInt(num[i],10);if(a){n*=2;if(n>9)n-=9;}s+=n;a=!a;}return s%10===0;}
+function validateIban(iban){const r=(iban.slice(4)+iban.slice(0,4)).replace(/[A-Z]/g,c=>c.charCodeAt(0)-55);let rem=0n;for(const ch of r)rem=(rem*10n+BigInt(ch))%97n;return rem===1n;}
+function normalizeForOcr(raw){let out="",s=raw;const map=[];let i=0;while(i<s.length){const rest=s.slice(i);const m=rest.match(/^(\(\s*at\s*\)|\[\s*at\s*\])/i);if(m){out+="@";map.push(i);i+=m[0].length;continue;}let ch=s[i];if(ch===",")ch=".";out+=ch;map.push(i);i++;}return{text:out,map};}
+function lineHasLabel(lineText,labels){if(!lineText)return false;const l=lineText.toLowerCase();return labels.some(x=>l.includes(x));}
+function isValidMatch(pat,str,lineText=""){if(pat.minDigits||pat.maxDigits){const d=str.replace(/\D/g,"").length;if(pat.minDigits&&d<pat.minDigits)return false;if(pat.maxDigits&&d>pat.maxDigits)return false;}return!(pat.validate&&!pat.validate(str,lineText));}
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+
+/* ─── Shared detection engine ─── */
+function detectFromOcrData(data, scale, ocrWordsOut) {
+  const lines=[], words=[];
+  for(const block of(data.blocks||[]))
+    for(const para of(block.paragraphs||[]))
+      for(const line of(para.lines||[])){
+        lines.push(line);
+        for(const w of(line.words||[])){words.push(w);if(ocrWordsOut)ocrWordsOut.push({text:w.text,bbox:w.bbox,scale});}
+      }
+  const fullLower=lines.map(l=>l.text||"").join(" ").toLowerCase();
+  const isFinancial=FINANCIAL_KEYWORDS.some(k=>fullLower.includes(k));
+  const found=[];
+  for(const [sub,pat] of Object.entries(PATTERNS)){
+    for(const line of lines){
+      const raw=line.text||"";if(!raw.trim())continue;
+      const{text:norm,map}=pat.normalize?normalizeForOcr(raw):{text:raw,map:raw.split("").map((_,i)=>i)};
+      const re=pat.regex();let m;
+      while((m=re.exec(norm))!==null){
+        const ms=m[0],ns=m.index,ne=m.index+ms.length;
+        if(re.lastIndex===ns)re.lastIndex++;
+        if(!isValidMatch(pat,ms,raw))continue;
+        const rs=map[ns]??0,re2=(map[ne-1]??raw.length-1)+1;
+        const ws2=matchWordsInLine(line,rs,re2);if(!ws2.length)continue;
+        const box=(sub==="address"&&line.bbox)?line.bbox:unionBoxes(ws2.map(w=>w.bbox));
+        pushDetection(found,sub,ms.replace(/\s/g,""),box,scale);
+      }
+    }
+    if(!pat.validate||pat.validate.length<2){
+      for(const w of words){const t=w.text||"";if(!t.trim())continue;const{text:nt}=pat.normalize?normalizeForOcr(t):{text:t};const re=pat.regex();let m;while((m=re.exec(nt))!==null){const ms=m[0];if(re.lastIndex===m.index)re.lastIndex++;if(!isValidMatch(pat,ms,t))continue;if(w.bbox)pushDetection(found,sub,ms.replace(/\s/g,""),w.bbox,scale);}}
+    }
+  }
+  return{found,isFinancial};
+}
+
+/* ─── PDF text-layer extraction ─── */
+// Returns lines in 1× PDF-point space, or null if not a text-based page.
+async function pdfGetTextLines(page) {
+  const vp   = page.getViewport({scale:1});
+  const ph   = vp.viewBox[3]; // page height in PDF user units
+  let tc;
+  try { tc = await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false}); }
+  catch(_){ return null; }
+  const items = (tc.items||[]).filter(it=>it.str&&it.str.trim().length>0);
+  const totalChars = items.reduce((s,it)=>s+it.str.trim().length,0);
+  if(totalChars<20) return null; // scanned page or empty
+  // Sort top-to-bottom (PDF Y is bottom-up, higher Y = top of page)
+  items.sort((a,b)=>b.transform[5]-a.transform[5]);
+  // Group into lines by baseline Y (within 3 units tolerance)
+  const groups=[];
+  for(const item of items){
+    const by=item.transform[5];
+    let g=groups.find(g=>Math.abs(g.baseY-by)<3);
+    if(!g){g={baseY:by,items:[]};groups.push(g);}
+    g.items.push(item);
+  }
+  return groups.map(g=>{
+    g.items.sort((a,b)=>a.transform[4]-b.transform[4]);
+    const text=g.items.map(it=>it.str).join(" ").trim();
+    const fSize=Math.max(...g.items.map(it=>it.height||Math.abs(it.transform[3])||10));
+    const words=g.items.map(item=>{
+      const ix=item.transform[4],iw=item.width,ih=item.height||Math.abs(item.transform[3])||10;
+      return{text:item.str,bbox:{x0:ix,y0:ph-g.baseY-ih,x1:ix+iw,y1:ph-g.baseY}};
+    });
+    return{
+      text,
+      bbox:{x0:Math.min(...words.map(w=>w.bbox.x0)),y0:Math.min(...words.map(w=>w.bbox.y0)),x1:Math.max(...words.map(w=>w.bbox.x1)),y1:Math.max(...words.map(w=>w.bbox.y1))},
+      words
+    };
+  });
+}
+
+function textLinesToFakeOcrData(lines){
+  return{blocks:[{paragraphs:[{lines:lines.map(l=>({text:l.text,bbox:l.bbox,words:l.words}))}]}]};
+}
+
+function pushDetection(arr,subtype,text,box,scale){
+  const x=box.x0/scale,y=box.y0/scale,w=(box.x1-box.x0)/scale,h=(box.y1-box.y0)/scale;
+  if(w<=0||h<=0)return;
+  for(const d of arr){if(d.subtype!==subtype)continue;if(overlapRatio(d,{x,y,w,h})>0.6){const x2=Math.max(d.x+d.w,x+w),y2=Math.max(d.y+d.h,y+h);d.x=Math.min(d.x,x);d.y=Math.min(d.y,y);d.w=x2-d.x;d.h=y2-d.y;return;}}
+  arr.push({subtype,text,x,y,w,h,on:true});
+}
+function overlapRatio(a,b){const ix=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));const iy=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));const inter=ix*iy;return inter?inter/Math.min(a.w*a.h,b.w*b.h):0;}
+function matchWordsInLine(line,start,end){const matched=[],ws=line.words||[],text=line.text||"";let from=0;for(const w of ws){const wt=w.text||"";if(!wt)continue;let idx=text.indexOf(wt,from);if(idx===-1)idx=from;const wEnd=idx+wt.length;from=wEnd;if(wEnd>start&&idx<end)matched.push(w);}return matched;}
+function unionBoxes(boxes){return boxes.reduce((a,b)=>({x0:Math.min(a.x0,b.x0),y0:Math.min(a.y0,b.y0),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)}),{x0:Infinity,y0:Infinity,x1:-Infinity,y1:-Infinity});}
+
+/* ─── Canvas redaction helpers ─── */
+function applyRedactionToCtx(ctx2,src,x,y,w,h,style){
+  const pad=Math.max(2,Math.round(h*.1));x=Math.max(0,x-pad);y=Math.max(0,y-pad);w=Math.min(src.width-x,w+pad*2);h=Math.min(src.height-y,h+pad*2);
+  if(w<=0||h<=0)return;
+  if(style==="block"){ctx2.fillStyle="#000";ctx2.fillRect(x,y,w,h);}
+  else if(style==="blur")blurRgn(ctx2,src,x,y,w,h,Math.max(8,Math.round(h*.6)));
+  else pixelRgn(ctx2,src,x,y,w,h,Math.max(6,Math.round(h*.35)));
+}
+function blurRgn(ctx2,src,x,y,w,h,r){const off=document.createElement("canvas");off.width=w;off.height=h;const oc=off.getContext("2d");oc.filter=`blur(${r}px)`;oc.drawImage(src,x-r,y-r,w+r*2,h+r*2,-r,-r,w+r*2,h+r*2);ctx2.drawImage(off,x,y);}
+function pixelRgn(ctx2,src,x,y,w,h,size){const off=document.createElement("canvas");off.width=Math.max(1,Math.floor(w/size));off.height=Math.max(1,Math.floor(h/size));const oc=off.getContext("2d");oc.imageSmoothingEnabled=false;oc.drawImage(src,x,y,w,h,0,0,off.width,off.height);ctx2.imageSmoothingEnabled=false;ctx2.drawImage(off,0,0,off.width,off.height,x,y,w,h);ctx2.imageSmoothingEnabled=true;}
+function dataUrlToBytes(url){const bin=atob(url.split(",")[1]);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+
+/* ═══ TOOL SWITCHING ═══ */
+let activeTool="image";
+const TAB_EL ={image:"tabImage",pdf:"tabPdf",qr:"tabQr"};
+const SECT_EL={image:"imageTool",pdf:"pdfTool",qr:"qrTool"};
+function switchTool(t){
+  activeTool=t;
+  ["image","pdf","qr"].forEach(n=>{
+    document.getElementById(TAB_EL[n]).classList.toggle("active",n===t);
+    document.getElementById(SECT_EL[n]).style.display=n===t?"":"none";
+  });
+  if(t==="pdf"&&!pdfJsLoaded) ensurePdfJs().catch(()=>{});
+  if(t==="qr"&&!qrLibReady)  ensureQrLib().catch(()=>{});
+}
+document.getElementById("tabImage").addEventListener("click",()=>switchTool("image"));
+document.getElementById("tabPdf").addEventListener("click",  ()=>switchTool("pdf"));
+document.getElementById("tabQr").addEventListener("click",   ()=>switchTool("qr"));
+
+/* ═══ IMAGE TOOL ═══ */
+const imgState={image:null,detections:[],style:"block",enabled:{},mode:"auto",drawing:false,drawStart:null};
+const imgHist=[]; let imgHistPos=-1;
+let lastOcrWords=[],lastOcrScale=1,facesScanned=false,namesScanned=false,nlpLib=null,faceDetector=null;
+let exportFormat="png",exportQuality=0.92;
+
+function imgSaveHist(){imgHist.splice(imgHistPos+1);imgHist.push({detections:JSON.parse(JSON.stringify(imgState.detections)),enabled:JSON.parse(JSON.stringify(imgState.enabled))});if(imgHist.length>50){imgHist.shift();imgHistPos=imgHist.length-1;}else{imgHistPos++;}syncUndoRedo();}
 function imgApplyHist(s){imgState.detections=JSON.parse(JSON.stringify(s.detections));imgState.enabled=JSON.parse(JSON.stringify(s.enabled));imgRenderTogglesAndCanvas();syncUndoRedo();}
 function imgUndo(){if(imgHistPos>0){imgHistPos--;imgApplyHist(imgHist[imgHistPos]);}}
 function imgRedo(){if(imgHistPos<imgHist.length-1){imgHistPos++;imgApplyHist(imgHist[imgHistPos]);}}
 function syncUndoRedo(){undoBtn.disabled=imgHistPos<=0;redoBtn.disabled=imgHistPos>=imgHist.length-1;}
 
-/* DOM refs */
 const imgDropZone=document.getElementById("imgDropZone"),fileInput=document.getElementById("fileInput"),imgWork=document.getElementById("imgWork");
 const canvas=document.getElementById("canvas"),ctx=canvas.getContext("2d");
 const toggleList=document.getElementById("toggleList"),imgStyleSel=document.getElementById("imgStyleSelect");
-const fmtSelect=document.getElementById("fmtSelect"),qualityRow=document.getElementById("qualityRow");
-const qualitySlider=document.getElementById("qualitySlider"),qualityVal=document.getElementById("qualityVal");
+const fmtSelect=document.getElementById("fmtSelect"),qualityRow=document.getElementById("qualityRow"),qualitySlider=document.getElementById("qualitySlider"),qualityVal=document.getElementById("qualityVal");
 const imgStatus=document.getElementById("imgStatus"),imgStatusTxt=document.getElementById("imgStatusText"),imgStatusBar=document.getElementById("imgStatusBar");
 const downloadBtn=document.getElementById("downloadBtn"),copyBtn=document.getElementById("copyBtn"),imgResetBtn=document.getElementById("imgResetBtn");
 const undoBtn=document.getElementById("undoBtn"),redoBtn=document.getElementById("redoBtn");
 const modeAuto=document.getElementById("modeAuto"),modeDraw=document.getElementById("modeDraw"),manualHint=document.getElementById("manualHint");
 const findFacesBtn=document.getElementById("findFacesBtn"),findNamesBtn=document.getElementById("findNamesBtn"),langSelect=document.getElementById("langSelect");
 
-/* Input */
 imgDropZone.addEventListener("click",()=>fileInput.click());
 fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFile(f);});
 ["dragenter","dragover"].forEach(ev=>imgDropZone.addEventListener(ev,e=>{e.preventDefault();imgDropZone.classList.add("dragover");}));
@@ -662,347 +618,135 @@ imgDropZone.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)img
 window.addEventListener("paste",e=>{if(activeTool!=="image")return;for(const it of(e.clipboardData?.items||[])){if(it.type.startsWith("image/")){imgLoadFile(it.getAsFile());break;}}});
 langSelect.addEventListener("change",()=>{if(imgState.image)imgStartProcessing();});
 
-function imgLoadFile(file) {
-  if(!file||!file.type.startsWith("image/")){imgShowError("Please drop an image file (PNG, JPG, WEBP).");return;}
-  const reader=new FileReader();
-  reader.onload=ev=>{const img=new Image();img.onload=()=>{imgState.image=img;imgStartProcessing();};img.onerror=()=>imgShowError("Couldn't read that image.");img.src=ev.target.result;};
-  reader.onerror=()=>imgShowError("Couldn't read the file.");
-  reader.readAsDataURL(file);
-}
+function imgLoadFile(file){if(!file||!file.type.startsWith("image/")){imgShowError("Please drop an image file (PNG, JPG, WEBP).");return;}const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{imgState.image=img;imgStartProcessing();};img.onerror=()=>imgShowError("Couldn't read that image.");img.src=ev.target.result;};reader.onerror=()=>imgShowError("Couldn't read the file.");reader.readAsDataURL(file);}
 
-function preprocessForOcr(img) {
-  const tMin=1500,longSide=Math.max(img.naturalWidth,img.naturalHeight);
-  const scale=longSide<tMin?Math.min(3,tMin/longSide):1;
-  const w=Math.round(img.naturalWidth*scale),h=Math.round(img.naturalHeight*scale);
-  const pre=document.createElement("canvas");pre.width=w;pre.height=h;
-  const pctx=pre.getContext("2d");pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";
-  pctx.drawImage(img,0,0,w,h);
-  const id=pctx.getImageData(0,0,w,h),d=id.data;
-  for(let i=0;i<d.length;i+=4){const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];const v=Math.max(0,Math.min(255,(g-128)*1.15+128));d[i]=d[i+1]=d[i+2]=v;}
-  pctx.putImageData(id,0,0);
-  return {canvas:pre,scale};
-}
+function preprocessForOcr(img){const tMin=1500,ls=Math.max(img.naturalWidth,img.naturalHeight),scale=ls<tMin?Math.min(3,tMin/ls):1;const w=Math.round(img.naturalWidth*scale),h=Math.round(img.naturalHeight*scale);const pre=document.createElement("canvas");pre.width=w;pre.height=h;const pctx=pre.getContext("2d");pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.drawImage(img,0,0,w,h);const id=pctx.getImageData(0,0,w,h),d=id.data;for(let i=0;i<d.length;i+=4){const g=.299*d[i]+.587*d[i+1]+.114*d[i+2];const v=Math.max(0,Math.min(255,(g-128)*1.15+128));d[i]=d[i+1]=d[i+2]=v;}pctx.putImageData(id,0,0);return{canvas:pre,scale};}
 
-async function imgStartProcessing() {
+async function imgStartProcessing(){
   imgHideError();imgShowStatus("Preparing image…",5);
-  facesScanned=false;namesScanned=false;
-  imgState.detections=[];imgState.enabled={};
-  imgHist.length=0;imgHistPos=-1;syncUndoRedo();
-  lastOcrWords=[];lastOcrScale=1;
+  facesScanned=false;namesScanned=false;imgState.detections=[];imgState.enabled={};imgHist.length=0;imgHistPos=-1;syncUndoRedo();lastOcrWords=[];lastOcrScale=1;
   findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");
   findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;
-  canvas.width=imgState.image.naturalWidth;canvas.height=imgState.image.naturalHeight;
-  ctx.drawImage(imgState.image,0,0);
+  canvas.width=imgState.image.naturalWidth;canvas.height=imgState.image.naturalHeight;ctx.drawImage(imgState.image,0,0);
   imgWork.classList.add("active");imgDropZone.style.display="none";
-  const {canvas:ocrCanvas,scale}=preprocessForOcr(imgState.image);
+  const{canvas:ocrCanvas,scale}=preprocessForOcr(imgState.image);
   if(typeof Tesseract==="undefined"){imgShowError("OCR engine didn't load. Use Draw mode.");imgRenderTogglesAndCanvas();imgSetMode("draw");return;}
   let worker;
-  try {
+  try{
     imgShowStatus("Loading OCR engine…",10);
-    worker=await Tesseract.createWorker(langSelect.value,1,{logger:m=>{
-      if(m.status==="recognizing text")imgShowStatus("Scanning text…",30+Math.round(m.progress*65));
-      else if(m.status)imgShowStatus(capitalize(m.status)+"…",Math.min(28,Math.round((m.progress||0)*30)));
-    }});
+    worker=await Tesseract.createWorker(langSelect.value,1,{logger:m=>{if(m.status==="recognizing text")imgShowStatus("Scanning text…",30+Math.round(m.progress*65));else if(m.status)imgShowStatus(capitalize(m.status)+"…",Math.min(28,Math.round((m.progress||0)*30)));}});
     imgShowStatus("Scanning text…",30);
     const result=await worker.recognize(ocrCanvas,{},{blocks:true});
     await worker.terminate();
     imgRunDetection(result.data,scale);
-  } catch(err) {
-    console.error("OCR error:",err);
-    if(worker){try{await worker.terminate();}catch(_){}}
-    imgShowError("OCR couldn't run. Use Draw mode.");imgRenderTogglesAndCanvas();imgSetMode("draw");
-  }
+  }catch(err){console.error("OCR error:",err);if(worker){try{await worker.terminate();}catch(_){}}imgShowError("OCR couldn't run. Use Draw mode.");imgRenderTogglesAndCanvas();imgSetMode("draw");}
 }
 
-function imgRunDetection(data, scale) {
+function imgRunDetection(data,scale){
   imgState.detections=imgState.detections.filter(d=>d.type==="manual");
-  lastOcrWords=[];
-  const {found,isFinancial}=detectFromOcrData(data,scale,lastOcrWords);
-  lastOcrScale=scale;
-
+  lastOcrWords=[];const{found,isFinancial}=detectFromOcrData(data,scale,lastOcrWords);lastOcrScale=scale;
   for(const f of found){
     let merged=false;
-    for(const d of imgState.detections){
-      if(d.type==="auto"&&d.subtype===f.subtype&&overlapRatio(d,f)>0.6){
-        const x2=Math.max(d.x+d.w,f.x+f.w),y2=Math.max(d.y+d.h,f.y+f.h);
-        d.x=Math.min(d.x,f.x);d.y=Math.min(d.y,f.y);d.w=x2-d.x;d.h=y2-d.y;
-        merged=true;break;
-      }
-    }
+    for(const d of imgState.detections){if(d.type==="auto"&&d.subtype===f.subtype&&overlapRatio(d,f)>0.6){const x2=Math.max(d.x+d.w,f.x+f.w),y2=Math.max(d.y+d.h,f.y+f.h);d.x=Math.min(d.x,f.x);d.y=Math.min(d.y,f.y);d.w=x2-d.x;d.h=y2-d.y;merged=true;break;}}
     if(!merged)imgState.detections.push({type:"auto",...f});
   }
-
-  for(const subtype of Object.keys(PATTERNS)){
-    const hasAny=imgState.detections.some(d=>d.type==="auto"&&d.subtype===subtype);
-    const defaultOn=(subtype==="longnum"&&isFinancial)||PATTERNS[subtype].defaultOn;
-    imgState.enabled[subtype]=defaultOn&&hasAny;
-  }
+  for(const sub of Object.keys(PATTERNS)){const has=imgState.detections.some(d=>d.type==="auto"&&d.subtype===sub);const def=(sub==="longnum"&&isFinancial)||PATTERNS[sub].defaultOn;imgState.enabled[sub]=def&&has;}
   imgState.detections.forEach(d=>{if(d.type==="auto")d.on=imgState.enabled[d.subtype];});
-
   imgHideStatus();imgRenderTogglesAndCanvas();imgSaveHist();
 }
 
-function imgRenderTogglesAndCanvas() {
-  const counts={};
-  imgState.detections.forEach(d=>{if(d.type==="auto")counts[d.subtype]=(counts[d.subtype]||0)+1;});
+function imgRenderTogglesAndCanvas(){
+  const counts={};imgState.detections.forEach(d=>{if(d.type==="auto")counts[d.subtype]=(counts[d.subtype]||0)+1;});
   toggleList.innerHTML="";let anyAuto=false;
-
-  for(const [subtype,pat] of Object.entries(PATTERNS)){
-    const count=counts[subtype]||0;
-    const row=document.createElement("div");
-    row.className="toggle "+(imgState.enabled[subtype]?"on":"off");
-    if(count===0)row.style.opacity=0.35;
+  for(const [sub,pat] of Object.entries(PATTERNS)){
+    const count=counts[sub]||0;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sub]?"on":"off");if(count===0)row.style.opacity=0.35;
     row.innerHTML=`<span class="label">${pat.label}</span><span class="count">${count}</span>`;
-    row.addEventListener("click",()=>{
-      if(!count)return;
-      imgState.enabled[subtype]=!imgState.enabled[subtype];
-      imgState.detections.forEach(d=>{if(d.type==="auto"&&d.subtype===subtype)d.on=imgState.enabled[subtype];});
-      imgRenderTogglesAndCanvas();imgSaveHist();
-    });
+    row.addEventListener("click",()=>{if(!count)return;imgState.enabled[sub]=!imgState.enabled[sub];imgState.detections.forEach(d=>{if(d.type==="auto"&&d.subtype===sub)d.on=imgState.enabled[sub];});imgRenderTogglesAndCanvas();imgSaveHist();});
     toggleList.appendChild(row);if(count>0)anyAuto=true;
   }
-
-  // Faces row
-  const faceCount=counts.face||0;
-  if(faceCount>0){
-    const row=document.createElement("div");row.className="toggle "+(imgState.enabled.face?"on":"off");
-    row.innerHTML=`<span class="label">Faces</span><span class="count">${faceCount}</span>`;
-    row.addEventListener("click",()=>{imgState.enabled.face=!imgState.enabled.face;imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});imgRenderTogglesAndCanvas();imgSaveHist();});
+  for(const [sb,lbl] of [["face","Faces"],["name","Names"]]){
+    const count=counts[sb]||0;if(count===0)continue;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sb]?"on":"off");
+    row.innerHTML=`<span class="label">${lbl}</span><span class="count">${count}</span>`;
+    row.addEventListener("click",()=>{imgState.enabled[sb]=!imgState.enabled[sb];imgState.detections.forEach(d=>{if(d.subtype===sb)d.on=imgState.enabled[sb];});imgRenderTogglesAndCanvas();imgSaveHist();});
     toggleList.appendChild(row);anyAuto=true;
   }
-
-  // Names row
-  const nameCount=counts.name||0;
-  if(nameCount>0){
-    const row=document.createElement("div");row.className="toggle "+(imgState.enabled.name?"on":"off");
-    row.innerHTML=`<span class="label">Names</span><span class="count">${nameCount}</span>`;
-    row.addEventListener("click",()=>{imgState.enabled.name=!imgState.enabled.name;imgState.detections.forEach(d=>{if(d.subtype==="name")d.on=imgState.enabled.name;});imgRenderTogglesAndCanvas();imgSaveHist();});
-    toggleList.appendChild(row);anyAuto=true;
-  }
-
   const manualCount=imgState.detections.filter(d=>d.type==="manual").length;
-  if(manualCount>0){
-    const row=document.createElement("div");row.className="toggle on";
-    row.innerHTML=`<span class="label">Manual boxes</span><span class="count">${manualCount}</span>`;
-    row.addEventListener("click",()=>{if(!confirm("Remove all manually drawn boxes?"))return;imgState.detections=imgState.detections.filter(d=>d.type!=="manual");imgRenderTogglesAndCanvas();imgSaveHist();});
-    toggleList.appendChild(row);
-  }
-
-  if(!anyAuto&&!manualCount){
-    const note=document.createElement("div");note.style.cssText="font-size:13px;color:var(--muted);padding:8px 4px;line-height:1.5;";
-    note.textContent="Nothing detected. Use Draw mode to drag boxes, or try a different OCR language.";
-    toggleList.appendChild(note);
-  }
+  if(manualCount>0){const row=document.createElement("div");row.className="toggle on";row.innerHTML=`<span class="label">Manual boxes</span><span class="count">${manualCount}</span>`;row.addEventListener("click",()=>{if(!confirm("Remove all manually drawn boxes?"))return;imgState.detections=imgState.detections.filter(d=>d.type!=="manual");imgRenderTogglesAndCanvas();imgSaveHist();});toggleList.appendChild(row);}
+  if(!anyAuto&&!manualCount){const note=document.createElement("div");note.style.cssText="font-size:13px;color:var(--muted);padding:8px 4px;line-height:1.5;";note.textContent="Nothing detected. Use Draw mode or try a different OCR language.";toggleList.appendChild(note);}
   manualHint.classList.toggle("show",anyAuto&&!manualCount);
   imgDrawCanvas();
 }
 
-function imgDrawCanvas() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(imgState.image,0,0);
-  for(const d of imgState.detections){if(d.on)applyRedactionToCtx(ctx,canvas,d.x,d.y,d.w,d.h,imgState.style);}
-  if(DEBUG_MODE)drawDebugOverlay();
-}
+function imgDrawCanvas(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(imgState.image,0,0);for(const d of imgState.detections){if(d.on)applyRedactionToCtx(ctx,canvas,d.x,d.y,d.w,d.h,imgState.style);}if(DEBUG_MODE)drawDebugOverlay();}
+function drawDebugOverlay(){if(!lastOcrWords.length)return;ctx.save();for(const w of lastOcrWords){if(!w.text||!w.bbox)continue;const s=w.scale||1;const x0=w.bbox.x0/s,y0=w.bbox.y0/s,x1=w.bbox.x1/s,y1=w.bbox.y1/s;ctx.strokeStyle="rgba(30,80,255,.4)";ctx.lineWidth=.8;ctx.strokeRect(x0,y0,x1-x0,y1-y0);ctx.fillStyle="rgba(30,80,255,.75)";ctx.font=`${Math.max(8,(y1-y0)*.5)}px monospace`;ctx.fillText(w.text,x0,Math.max(10,y0-2));}ctx.restore();}
 
-function drawDebugOverlay() {
-  if(!lastOcrWords.length)return;
-  ctx.save();
-  for(const w of lastOcrWords){
-    if(!w.text||!w.bbox)continue;
-    const s=w.scale||1;
-    const x0=w.bbox.x0/s,y0=w.bbox.y0/s,x1=w.bbox.x1/s,y1=w.bbox.y1/s;
-    ctx.strokeStyle="rgba(30,80,255,0.4)";ctx.lineWidth=0.8;
-    ctx.strokeRect(x0,y0,x1-x0,y1-y0);
-    ctx.fillStyle="rgba(30,80,255,0.75)";
-    ctx.font=`${Math.max(8,(y1-y0)*0.5)}px 'JetBrains Mono',monospace`;
-    ctx.fillText(w.text,x0,Math.max(10,y0-2));
-  }
-  ctx.restore();
-}
-
-/* Style selector */
 imgStyleSel.addEventListener("click",e=>{const opt=e.target.closest(".style-opt");if(!opt)return;imgStyleSel.querySelectorAll(".style-opt").forEach(o=>o.classList.remove("active"));opt.classList.add("active");imgState.style=opt.dataset.style;imgDrawCanvas();});
-
-/* Export format */
 fmtSelect.addEventListener("click",e=>{const opt=e.target.closest(".style-opt");if(!opt)return;fmtSelect.querySelectorAll(".style-opt").forEach(o=>o.classList.remove("active"));opt.classList.add("active");exportFormat=opt.dataset.fmt;qualityRow.style.display=exportFormat==="png"?"none":"flex";downloadBtn.textContent=`↓ Download ${exportFormat.toUpperCase()}`;});
 qualitySlider.addEventListener("input",()=>{exportQuality=qualitySlider.value/100;qualityVal.textContent=qualitySlider.value+"%";});
 
-/* Face detection */
 findFacesBtn.addEventListener("click",async()=>{
   if(!imgState.image)return;
-  if(facesScanned){
-    const has=imgState.detections.some(d=>d.subtype==="face");
-    if(!has){imgShowError("No faces found.");return;}
-    imgState.enabled.face=!imgState.enabled.face;
-    imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});
-    imgRenderTogglesAndCanvas();imgSaveHist();return;
-  }
+  if(facesScanned){const has=imgState.detections.some(d=>d.subtype==="face");if(!has){imgShowError("No faces found.");return;}imgState.enabled.face=!imgState.enabled.face;imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});imgRenderTogglesAndCanvas();imgSaveHist();return;}
   findFacesBtn.classList.add("working");findFacesBtn.textContent="Loading face model…";
   try{
     if(!faceDetector)faceDetector=await window.__loadFaceDetector();
     findFacesBtn.textContent="Scanning faces…";
-    const result=faceDetector.detect(imgState.image);
-    let added=0;
-    for(const det of(result?.detections||[])){
-      const box=det.boundingBox;if(!box)continue;
-      const {originX:x,originY:y,width:w,height:h}=box;
-      const padX=w*0.15,padY=h*0.2;
-      imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-padX),y:Math.max(0,y-padY),w:w+padX*2,h:h+padY*2,on:true});
-      added++;
-    }
+    const result=faceDetector.detect(imgState.image);let added=0;
+    for(const det of(result?.detections||[])){const box=det.boundingBox;if(!box)continue;const{originX:x,originY:y,width:w,height:h}=box;const px=w*.15,py=h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});added++;}
     facesScanned=true;imgState.enabled.face=added>0;
-    if(added===0)imgShowError("No faces found.");
-    else{imgHideStatus();imgSaveHist();}
+    if(added===0)imgShowError("No faces found.");else{imgHideStatus();imgSaveHist();}
     imgRenderTogglesAndCanvas();
-  }catch(err){console.error(err);imgShowError("Couldn't load face detector. Check connection.");}
-  finally{
-    findFacesBtn.classList.remove("working");
-    findFacesBtn.textContent=(facesScanned&&imgState.detections.some(d=>d.subtype==="face"))?"Toggle faces":"⊕ Find faces";
-  }
+  }catch(err){console.error(err);imgShowError("Couldn't load face detector.");}
+  finally{findFacesBtn.classList.remove("working");findFacesBtn.textContent=(facesScanned&&imgState.detections.some(d=>d.subtype==="face"))?"Toggle faces":"⊕ Find faces";}
 });
 
-/* Names NER — compromise.js lazy-loaded */
 findNamesBtn.addEventListener("click",async()=>{
-  if(!imgState.image){return;}
-  if(namesScanned){
-    const has=imgState.detections.some(d=>d.subtype==="name");
-    if(!has){imgShowError("No names found.");return;}
-    imgState.enabled.name=!imgState.enabled.name;
-    imgState.detections.forEach(d=>{if(d.subtype==="name")d.on=imgState.enabled.name;});
-    imgRenderTogglesAndCanvas();imgSaveHist();return;
-  }
+  if(!imgState.image)return;
+  if(namesScanned){const has=imgState.detections.some(d=>d.subtype==="name");if(!has){imgShowError("No names found.");return;}imgState.enabled.name=!imgState.enabled.name;imgState.detections.forEach(d=>{if(d.subtype==="name")d.on=imgState.enabled.name;});imgRenderTogglesAndCanvas();imgSaveHist();return;}
   if(!lastOcrWords.length){imgShowError("Scan an image first.");return;}
   findNamesBtn.disabled=true;findNamesBtn.textContent="Loading NER…";
   try{
-    if(!nlpLib){
-      await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://unpkg.com/compromise@14.14.3/builds/compromise.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-      nlpLib=window.nlp;
-    }
+    if(!nlpLib){await loadLib(["https://unpkg.com/compromise@14.14.3/builds/compromise.js","https://cdn.jsdelivr.net/npm/compromise@14.14.3/builds/compromise.js"],"nlp","compromise_14");nlpLib=window.nlp;}
     findNamesBtn.textContent="Finding names…";
-    // Build indexed text from OCR words
-    let fullText="";
-    const wordIndex=[];
-    for(const w of lastOcrWords){
-      if(!w.text)continue;
-      wordIndex.push({start:fullText.length,end:fullText.length+w.text.length,w});
-      fullText+=w.text+" ";
-    }
-    const doc=nlpLib(fullText);
-    const people=doc.people().json();
-    let added=0;
-    for(const person of people){
-      const name=(person.text||"").trim();
-      if(!name||name.length<3)continue;
-      const tokens=name.split(/\s+/);
-      let foundBboxes=null;
-      outer: for(let i=0;i<=wordIndex.length-tokens.length;i++){
-        for(let j=0;j<tokens.length;j++){
-          if((wordIndex[i+j]?.w?.text||"").toLowerCase()!==tokens[j].toLowerCase()){continue outer;}
-        }
-        foundBboxes=wordIndex.slice(i,i+tokens.length).map(wi=>wi.w.bbox).filter(Boolean);
-        break;
-      }
-      if(!foundBboxes||!foundBboxes.length)continue;
-      const box=unionBoxes(foundBboxes);
-      imgState.detections.push({type:"auto",subtype:"name",text:name,
-        x:box.x0/lastOcrScale,y:box.y0/lastOcrScale,
-        w:(box.x1-box.x0)/lastOcrScale,h:(box.y1-box.y0)/lastOcrScale,on:true});
-      added++;
-    }
+    let fullText="";const wordIdx=[];
+    for(const w of lastOcrWords){if(!w.text)continue;wordIdx.push({start:fullText.length,end:fullText.length+w.text.length,w});fullText+=w.text+" ";}
+    const people=nlpLib(fullText).people().json();let added=0;
+    for(const person of people){const name=(person.text||"").trim();if(!name||name.length<3)continue;const tokens=name.split(/\s+/);let bboxes=null;outer:for(let i=0;i<=wordIdx.length-tokens.length;i++){for(let j=0;j<tokens.length;j++){if((wordIdx[i+j]?.w?.text||"").toLowerCase()!==tokens[j].toLowerCase())continue outer;}bboxes=wordIdx.slice(i,i+tokens.length).map(wi=>wi.w.bbox).filter(Boolean);break;}if(!bboxes||!bboxes.length)continue;const box=unionBoxes(bboxes);imgState.detections.push({type:"auto",subtype:"name",text:name,x:box.x0/lastOcrScale,y:box.y0/lastOcrScale,w:(box.x1-box.x0)/lastOcrScale,h:(box.y1-box.y0)/lastOcrScale,on:true});added++;}
     namesScanned=true;imgState.enabled.name=added>0;
-    if(added===0)imgShowError("No names found by NER.");
-    else{imgHideStatus();imgSaveHist();}
+    if(added===0)imgShowError("No names found.");else{imgHideStatus();imgSaveHist();}
     imgRenderTogglesAndCanvas();
-  }catch(err){console.error("NER error:",err);imgShowError("Couldn't load NER library. Check connection.");}
-  finally{
-    findNamesBtn.disabled=false;
-    findNamesBtn.textContent=(namesScanned&&imgState.detections.some(d=>d.subtype==="name"))?"Toggle names":"⊕ Find names";
-  }
+  }catch(err){console.error("NER:",err);imgShowError("Couldn't load NER library.");}
+  finally{findNamesBtn.disabled=false;findNamesBtn.textContent=(namesScanned&&imgState.detections.some(d=>d.subtype==="name"))?"Toggle names":"⊕ Find names";}
 });
 
-/* Mode */
 function imgSetMode(m){imgState.mode=m;modeAuto.classList.toggle("active",m==="auto");modeDraw.classList.toggle("active",m==="draw");canvas.style.cursor=m==="draw"?"crosshair":"default";}
-modeAuto.addEventListener("click",()=>imgSetMode("auto"));
-modeDraw.addEventListener("click",()=>imgSetMode("draw"));
+modeAuto.addEventListener("click",()=>imgSetMode("auto"));modeDraw.addEventListener("click",()=>imgSetMode("draw"));
 
-function canvasCoords(e){
-  const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;
-  const pt=e.touches?e.touches[0]:e;
-  return{x:(pt.clientX-r.left)*sx,y:(pt.clientY-r.top)*sy};
-}
-
+function canvasCoords(e){const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;const pt=e.touches?e.touches[0]:e;return{x:(pt.clientX-r.left)*sx,y:(pt.clientY-r.top)*sy};}
 canvas.addEventListener("mousedown",startDraw);canvas.addEventListener("touchstart",startDraw,{passive:false});
 canvas.addEventListener("mousemove",moveDraw);canvas.addEventListener("touchmove",moveDraw,{passive:false});
 window.addEventListener("mouseup",endDraw);window.addEventListener("touchend",endDraw);
-
 function startDraw(e){if(imgState.mode!=="draw")return;e.preventDefault();imgState.drawing=true;imgState.drawStart=canvasCoords(e);}
-function moveDraw(e){
-  if(!imgState.drawing){
-    if(imgState.mode!=="draw"&&imgState.image){
-      const{x,y}=canvasCoords(e);
-      const over=imgState.detections.some(d=>{const p=Math.max(2,Math.round(d.h*.1));return x>=d.x-p&&x<=d.x+d.w+p&&y>=d.y-p&&y<=d.y+d.h+p;});
-      canvas.style.cursor=over?"pointer":"default";
-    }
-    return;
-  }
-  e.preventDefault();
-  const cur=canvasCoords(e);imgDrawCanvas();
-  ctx.strokeStyle="#ff4d2e";ctx.lineWidth=2;ctx.setLineDash([6,4]);
-  ctx.strokeRect(Math.min(imgState.drawStart.x,cur.x),Math.min(imgState.drawStart.y,cur.y),Math.abs(cur.x-imgState.drawStart.x),Math.abs(cur.y-imgState.drawStart.y));
-  ctx.setLineDash([]);
-}
-function endDraw(e){
-  if(!imgState.drawing)return;imgState.drawing=false;
-  const cur=canvasCoords(e.changedTouches?{touches:e.changedTouches}:e);
-  const x=Math.min(imgState.drawStart.x,cur.x),y=Math.min(imgState.drawStart.y,cur.y);
-  const w=Math.abs(cur.x-imgState.drawStart.x),h=Math.abs(cur.y-imgState.drawStart.y);
-  if(w>8&&h>8){imgState.detections.push({type:"manual",subtype:"manual",text:"",x,y,w,h,on:true});imgRenderTogglesAndCanvas();imgSaveHist();}
-  else imgDrawCanvas();
-}
-
-canvas.addEventListener("contextmenu",e=>{
-  e.preventDefault();if(!imgState.image)return;
-  const{x,y}=canvasCoords(e);
-  for(let i=imgState.detections.length-1;i>=0;i--){
-    const d=imgState.detections[i],p=Math.max(2,Math.round(d.h*.1));
-    if(x>=d.x-p&&x<=d.x+d.w+p&&y>=d.y-p&&y<=d.y+d.h+p){imgState.detections.splice(i,1);imgRenderTogglesAndCanvas();imgSaveHist();return;}
-  }
-});
-
-window.addEventListener("keydown",e=>{
-  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key==="z"){e.preventDefault();imgUndo();}
-  if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.shiftKey&&e.key==="z"))){e.preventDefault();imgRedo();}
-});
+function moveDraw(e){if(!imgState.drawing){if(imgState.mode!=="draw"&&imgState.image){const{x,y}=canvasCoords(e);const over=imgState.detections.some(d=>{const p=Math.max(2,Math.round(d.h*.1));return x>=d.x-p&&x<=d.x+d.w+p&&y>=d.y-p&&y<=d.y+d.h+p;});canvas.style.cursor=over?"pointer":"default";}return;}e.preventDefault();const cur=canvasCoords(e);imgDrawCanvas();ctx.strokeStyle="#ff4d2e";ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(Math.min(imgState.drawStart.x,cur.x),Math.min(imgState.drawStart.y,cur.y),Math.abs(cur.x-imgState.drawStart.x),Math.abs(cur.y-imgState.drawStart.y));ctx.setLineDash([]);}
+function endDraw(e){if(!imgState.drawing)return;imgState.drawing=false;const cur=canvasCoords(e.changedTouches?{touches:e.changedTouches}:e);const x=Math.min(imgState.drawStart.x,cur.x),y=Math.min(imgState.drawStart.y,cur.y),w=Math.abs(cur.x-imgState.drawStart.x),h=Math.abs(cur.y-imgState.drawStart.y);if(w>8&&h>8){imgState.detections.push({type:"manual",subtype:"manual",text:"",x,y,w,h,on:true});imgRenderTogglesAndCanvas();imgSaveHist();}else imgDrawCanvas();}
+canvas.addEventListener("contextmenu",e=>{e.preventDefault();if(!imgState.image)return;const{x,y}=canvasCoords(e);for(let i=imgState.detections.length-1;i>=0;i--){const d=imgState.detections[i],p=Math.max(2,Math.round(d.h*.1));if(x>=d.x-p&&x<=d.x+d.w+p&&y>=d.y-p&&y<=d.y+d.h+p){imgState.detections.splice(i,1);imgRenderTogglesAndCanvas();imgSaveHist();return;}}});
+window.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key==="z"){e.preventDefault();imgUndo();}if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.shiftKey&&e.key==="z"))){e.preventDefault();imgRedo();}});
 undoBtn.addEventListener("click",imgUndo);redoBtn.addEventListener("click",imgRedo);
-
-downloadBtn.addEventListener("click",()=>{
-  const mime={png:"image/png",jpg:"image/jpeg",webp:"image/webp"}[exportFormat]||"image/png";
-  canvas.toBlob(blob=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`redacted.${exportFormat}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},mime,exportFormat==="png"?undefined:exportQuality);
-});
-copyBtn.addEventListener("click",async()=>{
-  try{const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);copyBtn.textContent="✓ Copied";setTimeout(()=>(copyBtn.textContent="Copy to clipboard"),1500);}
-  catch{alert("Couldn't copy. Use Download instead.");}
-});
-imgResetBtn.addEventListener("click",()=>{
-  imgState.image=null;imgState.detections=[];imgState.enabled={};imgState.mode="auto";
-  imgHist.length=0;imgHistPos=-1;facesScanned=false;namesScanned=false;lastOcrWords=[];
-  findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");
-  findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;
-  syncUndoRedo();imgSetMode("auto");imgWork.classList.remove("active");imgDropZone.style.display="block";fileInput.value="";imgHideStatus();
-});
-
+downloadBtn.addEventListener("click",()=>{const mime={png:"image/png",jpg:"image/jpeg",webp:"image/webp"}[exportFormat]||"image/png";canvas.toBlob(blob=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`redacted.${exportFormat}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},mime,exportFormat==="png"?undefined:exportQuality);});
+copyBtn.addEventListener("click",async()=>{try{const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);copyBtn.textContent="✓ Copied";setTimeout(()=>(copyBtn.textContent="Copy to clipboard"),1500);}catch{alert("Couldn't copy. Use Download instead.");}});
+imgResetBtn.addEventListener("click",()=>{imgState.image=null;imgState.detections=[];imgState.enabled={};imgState.mode="auto";imgHist.length=0;imgHistPos=-1;facesScanned=false;namesScanned=false;lastOcrWords=[];findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;syncUndoRedo();imgSetMode("auto");imgWork.classList.remove("active");imgDropZone.style.display="block";fileInput.value="";imgHideStatus();});
 function imgShowStatus(t,p){imgStatus.classList.add("show");imgStatus.classList.remove("error");imgStatusTxt.textContent=t;imgStatusBar.style.width=(p||0)+"%";}
 function imgHideStatus(){imgStatus.classList.remove("show");imgStatusBar.style.width="0%";}
 function imgShowError(t){imgStatus.classList.add("show","error");imgStatusTxt.textContent="⚠ "+t;imgStatusBar.style.width="100%";}
 function imgHideError(){imgStatus.classList.remove("error");}
 
-/* ═══════════════════════════════════════════════════════
-   PDF TOOL  (v0.5)
-═══════════════════════════════════════════════════════ */
-const pdfState={ab:null,numPages:0,pageViewports:[],detections:[],enabled:{},style:"block"};
+/* ═══ PDF TOOL ═══ */
+const OCR_SCALE=2; // render scale for OCR / redaction
+const pdfState={ab:null,numPages:0,pageViewports:[],detections:[],enabled:{},style:"block",pageModes:[]}; // pageMode: 'text'|'ocr'
+
 const pdfDropZone=document.getElementById("pdfDropZone"),pdfFileInput=document.getElementById("pdfFileInput");
 const pdfStatusEl=document.getElementById("pdfStatus"),pdfStatusTxt=document.getElementById("pdfStatusText"),pdfStatusBar=document.getElementById("pdfStatusBar");
-const pdfWork=document.getElementById("pdfWork"),pdfThumb=document.getElementById("pdfThumb"),pdfStat=document.getElementById("pdfStat");
+const pdfWork=document.getElementById("pdfWork"),pdfPagesList=document.getElementById("pdfPagesList");
 const pdfToggleList=document.getElementById("pdfToggleList"),pdfPanelTitle=document.getElementById("pdfPanelTitle");
 const pdfStyleSel=document.getElementById("pdfStyleSelect"),pdfDownloadBtn=document.getElementById("pdfDownloadBtn"),pdfResetBtn=document.getElementById("pdfResetBtn"),pdfLangSelect=document.getElementById("pdfLangSelect");
 
@@ -1012,85 +756,98 @@ pdfFileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)pdfLoa
 ["dragleave","drop"].forEach(ev=>pdfDropZone.addEventListener(ev,e=>{e.preventDefault();pdfDropZone.classList.remove("dragover");}));
 pdfDropZone.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)pdfLoad(f);});
 pdfStyleSel.addEventListener("click",e=>{const opt=e.target.closest(".style-opt");if(!opt)return;pdfStyleSel.querySelectorAll(".style-opt").forEach(o=>o.classList.remove("active"));opt.classList.add("active");pdfState.style=opt.dataset.style;});
-pdfResetBtn.addEventListener("click",()=>{pdfState.ab=null;pdfState.numPages=0;pdfState.pageViewports=[];pdfState.detections=[];pdfState.enabled={};pdfWork.classList.remove("active");pdfDropZone.style.display="block";pdfFileInput.value="";pdfStatusEl.classList.remove("show");pdfThumb.classList.remove("show");pdfStat.textContent="";pdfDownloadBtn.disabled=true;});
+pdfResetBtn.addEventListener("click",()=>{pdfState.ab=null;pdfState.numPages=0;pdfState.pageViewports=[];pdfState.detections=[];pdfState.enabled={};pdfState.pageModes=[];pdfWork.classList.remove("active");pdfDropZone.style.display="block";pdfFileInput.value="";pdfStatusEl.classList.remove("show");pdfPagesList.innerHTML="";pdfDownloadBtn.disabled=true;});
 pdfDownloadBtn.addEventListener("click",pdfBuildAndDownload);
 
-async function pdfLoad(file) {
+async function pdfLoad(file){
   if(!file||(file.type!=="application/pdf"&&!file.name.endsWith(".pdf"))){pdfShowStatus("Please drop a PDF file.",true);return;}
-  if(typeof pdfjsLib==="undefined"){pdfShowStatus("PDF engine didn't load. Check connection.",true);return;}
-  pdfDropZone.style.display="none";pdfShowStatus("Reading file…",5);
+  pdfDropZone.style.display="none";pdfShowStatus("Loading PDF engine…",3);
   try{
+    await ensurePdfJs();
     pdfState.ab=await file.arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:pdfState.ab}).promise;
-    pdfState.numPages=pdf.numPages;pdfState.pageViewports=[];pdfState.detections=[];pdfState.enabled={};
+    pdfState.numPages=pdf.numPages;pdfState.pageViewports=[];pdfState.detections=[];pdfState.enabled={};pdfState.pageModes=[];
+    pdfPagesList.innerHTML="";
     pdfWork.classList.add("active");
     pdfPanelTitle.textContent=`Detected — ${pdfState.numPages} page${pdfState.numPages>1?"s":""}`;
-    pdfStat.innerHTML=`<strong>${pdfState.numPages}</strong> page${pdfState.numPages>1?"s":""} — scanning…`;
-    let thumbShown=false;
+    console.group(`📄 Maskr PDF pipeline — ${pdfState.numPages} page(s)`);
     for(let pageNum=1;pageNum<=pdfState.numPages;pageNum++){
-      pdfShowStatus(`OCR — page ${pageNum} of ${pdfState.numPages}…`,5+Math.round(((pageNum-1)/pdfState.numPages)*85));
+      const pct=5+Math.round(((pageNum-1)/pdfState.numPages)*85);
+      pdfShowStatus(`Page ${pageNum}/${pdfState.numPages} — detecting…`,pct);
       const page=await pdf.getPage(pageNum);
       const vp1=page.getViewport({scale:1});
       pdfState.pageViewports.push({w:vp1.width,h:vp1.height});
-      const OCR_SCALE=2,vp2=page.getViewport({scale:OCR_SCALE});
-      const offC=document.createElement("canvas");offC.width=vp2.width;offC.height=vp2.height;
-      await page.render({canvasContext:offC.getContext("2d"),viewport:vp2}).promise;
-      if(!thumbShown){
-        const ts=Math.min(1,400/Math.max(offC.width,offC.height));
-        pdfThumb.width=Math.round(offC.width*ts);pdfThumb.height=Math.round(offC.height*ts);
-        pdfThumb.getContext("2d").drawImage(offC,0,0,pdfThumb.width,pdfThumb.height);
-        pdfThumb.classList.add("show");thumbShown=true;
+      // --- Thumbnail ---
+      const THUMB_SCALE=Math.min(0.3,300/Math.max(vp1.width,vp1.height));
+      const vpThumb=page.getViewport({scale:THUMB_SCALE});
+      const thumbC=document.createElement("canvas");thumbC.width=vpThumb.width;thumbC.height=vpThumb.height;thumbC.className="pdf-page-thumb";
+      await page.render({canvasContext:thumbC.getContext("2d"),viewport:vpThumb}).promise;
+      // --- Detection (text-layer first, OCR fallback) ---
+      console.log(`Page ${pageNum}: size ${Math.round(vp1.width)}×${Math.round(vp1.height)} pt`);
+      let found=[];let mode="ocr";
+      const textLines=await pdfGetTextLines(page);
+      if(textLines){
+        mode="text";
+        const preview=textLines.slice(0,3).map(l=>l.text).join(" | ").slice(0,150);
+        console.log(`Page ${pageNum}: TEXT layer (${textLines.length} lines) → "${preview}"`);
+        const fakeData=textLinesToFakeOcrData(textLines);
+        const res=detectFromOcrData(fakeData,1,null);
+        found=res.found;
+      }else{
+        console.log(`Page ${pageNum}: OCR mode (no usable text layer)`);
+        if(typeof Tesseract!=="undefined"){
+          const vpOcr=page.getViewport({scale:OCR_SCALE});
+          const ocrC=document.createElement("canvas");ocrC.width=vpOcr.width;ocrC.height=vpOcr.height;
+          await page.render({canvasContext:ocrC.getContext("2d"),viewport:vpOcr}).promise;
+          let worker;
+          try{worker=await Tesseract.createWorker(pdfLangSelect.value,1,{});const r=await worker.recognize(ocrC,{},{blocks:true});await worker.terminate();const res=detectFromOcrData(r.data,OCR_SCALE,null);found=res.found;}
+          catch(err){console.error(`Page ${pageNum} OCR:`,err);if(worker){try{await worker.terminate();}catch(_){}}}
+        }
       }
-      if(typeof Tesseract!=="undefined"){
-        let worker;
-        try{
-          worker=await Tesseract.createWorker(pdfLangSelect.value,1,{});
-          const result=await worker.recognize(offC,{},{blocks:true});
-          await worker.terminate();
-          const {found}=detectFromOcrData(result.data,OCR_SCALE);
-          for(const f of found)pdfState.detections.push({page:pageNum,...f});
-        }catch(err){console.error(`PDF OCR p${pageNum}:`,err);if(worker){try{await worker.terminate();}catch(_){}}}
-      }
+      console.log(`Page ${pageNum} [${mode}]: ${found.length} detection(s) — ${found.map(f=>f.subtype+":"+f.text.slice(0,20)).join(", ")||"none"}`);
+      for(const f of found)pdfState.detections.push({page:pageNum,...f});
+      pdfState.pageModes.push(mode);
+      page.cleanup();
+      // --- Build page entry in UI ---
+      const badge=document.createElement("span");badge.className="pdf-page-badge"+(found.length===0?" zero":"");badge.textContent=found.length===0?"0 items":`${found.length} item${found.length!==1?"s":""}`;
+      const meta=document.createElement("div");meta.className="pdf-page-meta";meta.innerHTML=`<span>Page ${pageNum}</span>`;meta.appendChild(badge);
+      const item=document.createElement("div");item.className="pdf-page-item";item.appendChild(thumbC);item.appendChild(meta);
+      pdfPagesList.appendChild(item);
     }
+    console.log(`Total detections: ${pdfState.detections.length}`);
+    console.groupEnd();
     pdfFinalize();
   }catch(err){
     console.error("PDF error:",err);
-    pdfShowStatus("Couldn't read the PDF. Make sure it's not password-protected.",true);
+    pdfShowStatus("Error: "+err.message+". Make sure it's not password-protected.",true);
     pdfDropZone.style.display="block";pdfWork.classList.remove("active");
   }
 }
 
 function pdfFinalize(){
-  const counts={};
-  pdfState.detections.forEach(d=>{counts[d.subtype]=(counts[d.subtype]||0)+1;});
-  const fullText=pdfState.detections.map(d=>d.text||"").join(" ").toLowerCase();
-  const isFinancial=FINANCIAL_KEYWORDS.some(k=>fullText.includes(k));
-  for(const subtype of Object.keys(PATTERNS)){
-    const defaultOn=(subtype==="longnum"&&isFinancial)||PATTERNS[subtype].defaultOn;
-    pdfState.enabled[subtype]=defaultOn&&(counts[subtype]||0)>0;
-  }
+  const counts={};pdfState.detections.forEach(d=>{counts[d.subtype]=(counts[d.subtype]||0)+1;});
+  const fullLower=pdfState.detections.map(d=>d.text||"").join(" ").toLowerCase();
+  const isFinancial=FINANCIAL_KEYWORDS.some(k=>fullLower.includes(k));
+  for(const sub of Object.keys(PATTERNS)){const def=(sub==="longnum"&&isFinancial)||PATTERNS[sub].defaultOn;pdfState.enabled[sub]=def&&(counts[sub]||0)>0;}
   pdfState.detections.forEach(d=>{d.on=pdfState.enabled[d.subtype]??true;});
-  const total=pdfState.detections.length;
-  pdfStat.innerHTML=`<strong>${pdfState.numPages}</strong> page${pdfState.numPages>1?"s":""} &nbsp;·&nbsp; <strong>${total}</strong> item${total!==1?"s":""} found`;
   pdfRenderToggles();pdfStatusEl.classList.remove("show");pdfDownloadBtn.disabled=false;
 }
 
 function pdfRenderToggles(){
   const counts={};pdfState.detections.forEach(d=>{counts[d.subtype]=(counts[d.subtype]||0)+1;});
   pdfToggleList.innerHTML="";
-  for(const [subtype,pat] of Object.entries(PATTERNS)){
-    const count=counts[subtype]||0;
-    const row=document.createElement("div");row.className="toggle "+(pdfState.enabled[subtype]?"on":"off");
-    if(count===0)row.style.opacity=0.35;
+  for(const [sub,pat] of Object.entries(PATTERNS)){
+    const count=counts[sub]||0;const row=document.createElement("div");row.className="toggle "+(pdfState.enabled[sub]?"on":"off");if(count===0)row.style.opacity=0.35;
     row.innerHTML=`<span class="label">${pat.label}</span><span class="count">${count}</span>`;
-    row.addEventListener("click",()=>{if(!count)return;pdfState.enabled[subtype]=!pdfState.enabled[subtype];pdfState.detections.forEach(d=>{if(d.subtype===subtype)d.on=pdfState.enabled[subtype];});pdfRenderToggles();});
+    row.addEventListener("click",()=>{if(!count)return;pdfState.enabled[sub]=!pdfState.enabled[sub];pdfState.detections.forEach(d=>{if(d.subtype===sub)d.on=pdfState.enabled[sub];});pdfRenderToggles();});
     pdfToggleList.appendChild(row);
   }
 }
 
 async function pdfBuildAndDownload(){
   if(!pdfState.ab||!pdfState.numPages)return;
-  if(typeof PDFLib==="undefined"){pdfShowStatus("pdf-lib didn't load.",true);return;}
+  pdfShowStatus("Loading export engine…",3);
+  try{await ensurePdfJs();await ensurePdfLib();}catch(err){pdfShowStatus("Export engine failed to load: "+err.message,true);return;}
   pdfDownloadBtn.disabled=true;pdfShowStatus("Building redacted PDF…",5);
   try{
     const{PDFDocument}=PDFLib;const newDoc=await PDFDocument.create();
@@ -1098,10 +855,11 @@ async function pdfBuildAndDownload(){
     for(let pageNum=1;pageNum<=pdfState.numPages;pageNum++){
       pdfShowStatus(`Exporting page ${pageNum}/${pdfState.numPages}…`,5+Math.round(((pageNum-1)/pdfState.numPages)*90));
       const page=await pdf.getPage(pageNum);
-      const OCR_SCALE=2,vp=page.getViewport({scale:OCR_SCALE});
+      const vp=page.getViewport({scale:OCR_SCALE});
       const offC=document.createElement("canvas");offC.width=vp.width;offC.height=vp.height;
       const offCtx=offC.getContext("2d");
       await page.render({canvasContext:offCtx,viewport:vp}).promise;
+      // Apply redactions: convert 1× detection coords to 2× canvas coords
       for(const d of pdfState.detections){
         if(d.page!==pageNum||!d.on)continue;
         applyRedactionToCtx(offCtx,offC,d.x*OCR_SCALE,d.y*OCR_SCALE,d.w*OCR_SCALE,d.h*OCR_SCALE,pdfState.style);
@@ -1111,107 +869,96 @@ async function pdfBuildAndDownload(){
       const vp1=pdfState.pageViewports[pageNum-1];
       const newPage=newDoc.addPage([vp1.w,vp1.h]);
       newPage.drawImage(embedded,{x:0,y:0,width:vp1.w,height:vp1.h});
+      page.cleanup();
     }
     const pdfBytes=await newDoc.save();
     const blob=new Blob([pdfBytes],{type:"application/pdf"});
-    const url=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=url;a.download="redacted.pdf";a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="redacted.pdf";a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
     pdfShowStatus("Done! Redacted PDF downloaded.",100);setTimeout(()=>pdfStatusEl.classList.remove("show"),3000);
-  }catch(err){console.error("PDF build error:",err);pdfShowStatus("Export failed: "+err.message,true);}
+  }catch(err){console.error("PDF export:",err);pdfShowStatus("Export failed: "+err.message,true);}
   finally{pdfDownloadBtn.disabled=false;}
 }
 
-function pdfShowStatus(text,pctOrErr){
-  pdfStatusEl.classList.add("show");pdfStatusEl.classList.toggle("error",pctOrErr===true);
-  pdfStatusTxt.textContent=pctOrErr===true?"⚠ "+text:text;
-  pdfStatusBar.style.width=(pctOrErr===true?100:pctOrErr||0)+"%";
-}
+function pdfShowStatus(text,pctOrErr){pdfStatusEl.classList.add("show");pdfStatusEl.classList.toggle("error",pctOrErr===true);pdfStatusTxt.textContent=pctOrErr===true?"⚠ "+text:text;pdfStatusBar.style.width=(pctOrErr===true?100:pctOrErr||0)+"%";}
 
-/* ═══════════════════════════════════════════════════════
-   QR TOOL  (v0.6)
-═══════════════════════════════════════════════════════ */
+/* ═══ QR TOOL ═══ */
 let qrSize=300,qrEc="M",qrDarkColor="#0a0a0a",qrLightColor="#f4efe6",qrType="url";
 const qrTypeGrid=document.querySelector("[data-qrtype]").parentElement;
 const qrSizeSel=document.getElementById("qrSizeSelect"),qrEcSel=document.getElementById("qrEcSelect");
 const qrDarkIn=document.getElementById("qrDark"),qrLightIn=document.getElementById("qrLight");
+const qrContrastWarn=document.getElementById("qrContrastWarn");
 const qrCanvas=document.getElementById("qrCanvas"),qrEmpty=document.getElementById("qrEmpty"),qrActions=document.getElementById("qrActions");
 const qrGenBtn=document.getElementById("qrGenerateBtn"),qrDownBtn=document.getElementById("qrDownloadBtn"),qrCopyBtn=document.getElementById("qrCopyBtn");
+const wifiPassEl=document.getElementById("wifiPass"),wifiPassToggle=document.getElementById("wifiPassToggle");
 
-qrTypeGrid.addEventListener("click",e=>{
-  const opt=e.target.closest("[data-qrtype]");if(!opt)return;
-  qrTypeGrid.querySelectorAll("[data-qrtype]").forEach(o=>o.classList.remove("active"));opt.classList.add("active");qrType=opt.dataset.qrtype;
-  document.getElementById("qrUrlFields").style.display=qrType==="url"?"":"none";
-  document.getElementById("qrTextFields").style.display=qrType==="text"?"":"none";
-  document.getElementById("qrWifiFields").style.display=qrType==="wifi"?"":"none";
-  document.getElementById("qrContactFields").style.display=qrType==="contact"?"":"none";
-});
+wifiPassToggle.addEventListener("click",()=>{wifiPassEl.type=wifiPassEl.type==="password"?"text":"password";wifiPassToggle.textContent=wifiPassEl.type==="password"?"👁":"🙈";});
+
+qrTypeGrid.addEventListener("click",e=>{const opt=e.target.closest("[data-qrtype]");if(!opt)return;qrTypeGrid.querySelectorAll("[data-qrtype]").forEach(o=>o.classList.remove("active"));opt.classList.add("active");qrType=opt.dataset.qrtype;document.getElementById("qrUrlFields").style.display=qrType==="url"?"":"none";document.getElementById("qrTextFields").style.display=qrType==="text"?"":"none";document.getElementById("qrWifiFields").style.display=qrType==="wifi"?"":"none";document.getElementById("qrContactFields").style.display=qrType==="contact"?"":"none";});
 qrSizeSel.addEventListener("click",e=>{const opt=e.target.closest("[data-size]");if(!opt)return;qrSizeSel.querySelectorAll("[data-size]").forEach(o=>o.classList.remove("active"));opt.classList.add("active");qrSize=parseInt(opt.dataset.size);});
 qrEcSel.addEventListener("click",e=>{const opt=e.target.closest("[data-ec]");if(!opt)return;qrEcSel.querySelectorAll("[data-ec]").forEach(o=>o.classList.remove("active"));opt.classList.add("active");qrEc=opt.dataset.ec;});
-qrDarkIn.addEventListener("input",()=>{qrDarkColor=qrDarkIn.value;});
-qrLightIn.addEventListener("input",()=>{qrLightColor=qrLightIn.value;});
+
+function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return[r,g,b];}
+function relativeLuminance([r,g,b]){const c=[r,g,b].map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;});return .2126*c[0]+.7152*c[1]+.0722*c[2];}
+function contrastRatio(hex1,hex2){const l1=relativeLuminance(hexToRgb(hex1)),l2=relativeLuminance(hexToRgb(hex2));const hi=Math.max(l1,l2),lo=Math.min(l1,l2);return(hi+.05)/(lo+.05);}
+
+function checkContrast(){const ratio=contrastRatio(qrDarkColor,qrLightColor);qrContrastWarn.style.display=ratio<4.5?"":"none";}
+qrDarkIn.addEventListener("input",()=>{qrDarkColor=qrDarkIn.value;checkContrast();});
+qrLightIn.addEventListener("input",()=>{qrLightColor=qrLightIn.value;checkContrast();});
 
 function qrBuildContent(){
   switch(qrType){
-    case "url":  return document.getElementById("qrUrl").value.trim();
-    case "text": return document.getElementById("qrText").value.trim();
-    case "wifi": {const s=document.getElementById("wifiSsid").value.trim(),p=document.getElementById("wifiPass").value,sec=document.getElementById("wifiSec").value,h=document.getElementById("wifiHidden").checked?"true":"false";return s?`WIFI:T:${sec};S:${s};P:${p};H:${h};;`:"";}
-    case "contact":{const n=document.getElementById("vcName").value.trim(),ph=document.getElementById("vcPhone").value.trim(),em=document.getElementById("vcEmail").value.trim(),u=document.getElementById("vcUrl").value.trim();return(n||ph||em)?`BEGIN:VCARD\r\nVERSION:3.0\r\nFN:${n}\r\nTEL:${ph}\r\nEMAIL:${em}\r\n${u?"URL:"+u+"\r\n":""}END:VCARD`:"";}}
+    case "url":     return document.getElementById("qrUrl").value.trim();
+    case "text":    return document.getElementById("qrText").value.trim();
+    case "wifi": {const s=document.getElementById("wifiSsid").value.trim(),p=wifiPassEl.value,sec=document.getElementById("wifiSec").value,h=document.getElementById("wifiHidden").checked?"true":"false";return s?`WIFI:T:${sec};S:${s};P:${p};H:${h};;`:"";}
+    case "contact":{const n=document.getElementById("vcName").value.trim(),org=document.getElementById("vcOrg").value.trim(),ph=document.getElementById("vcPhone").value.trim(),em=document.getElementById("vcEmail").value.trim(),u=document.getElementById("vcUrl").value.trim();return(n||ph||em)?`BEGIN:VCARD\r\nVERSION:3.0\r\nFN:${n}\r\n${org?"ORG:"+org+"\r\n":""}TEL:${ph}\r\nEMAIL:${em}\r\n${u?"URL:"+u+"\r\n":""}END:VCARD`:"";}
+  }
   return "";
 }
 
 qrGenBtn.addEventListener("click",async()=>{
   const content=qrBuildContent();
   if(!content){qrEmpty.textContent="Please fill in the required fields.";qrEmpty.style.display="";qrCanvas.style.display="none";qrActions.style.display="none";return;}
-  if(typeof QRCode==="undefined"){qrEmpty.textContent="QR library didn't load. Check connection.";return;}
+  try{
+    await ensureQrLib();
+  }catch(err){
+    // Show retry button
+    qrEmpty.innerHTML='QR engine failed to load. <button class="btn" style="margin-top:8px;padding:8px 14px" id="qrRetryBtn">Retry</button>';
+    qrEmpty.style.display="";qrCanvas.style.display="none";qrActions.style.display="none";
+    document.getElementById("qrRetryBtn")?.addEventListener("click",()=>{qrLibReady=false;qrGenBtn.click();});
+    return;
+  }
   try{
     await QRCode.toCanvas(qrCanvas,content,{width:qrSize,margin:2,errorCorrectionLevel:qrEc,color:{dark:qrDarkColor,light:qrLightColor}});
     qrEmpty.style.display="none";qrCanvas.style.display="block";qrActions.style.display="block";
-  }catch(err){console.error("QR error:",err);qrEmpty.textContent="Couldn't generate QR: "+err.message;qrEmpty.style.display="";qrCanvas.style.display="none";qrActions.style.display="none";}
-});
-qrDownBtn.addEventListener("click",()=>{const a=document.createElement("a");a.href=qrCanvas.toDataURL("image/png");a.download="maskr-qr.png";a.click();});
-qrCopyBtn.addEventListener("click",async()=>{
-  try{const blob=await new Promise(res=>qrCanvas.toBlob(res,"image/png"));await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);qrCopyBtn.textContent="✓ Copied";setTimeout(()=>(qrCopyBtn.textContent="Copy to clipboard"),1500);}
-  catch{alert("Couldn't copy. Use Download instead.");}
+  }catch(err){console.error("QR generate:",err);qrEmpty.textContent="Couldn't generate QR: "+err.message;qrEmpty.style.display="";qrCanvas.style.display="none";qrActions.style.display="none";}
 });
 
-/* ═══════════════════════════════════════════════════════
-   TEST MODE  (?test=1)
-═══════════════════════════════════════════════════════ */
-if (TEST_MODE) {
-  const SAMPLES = [
-    "Email: john.doe@example.com",
-    "Phone: +44 20 7946 0958",
-    "Mobile: 07700 900123",
-    "Card: 4111 1111 1111 1111",
-    "IBAN: GB82 WEST 1234 5678 9012 34",
-    "BIC: WESTGB2L",
-    "Sort code: 12-34-56",
-    "Account: 12345678",
-    "Visit https://example.com for more",
-    "Address: 10 Downing Street London SW1A 2AA",
-    "Ref: 12345678901 (long number)"
-  ];
-  const fakeOcrData = {
-    blocks: [{
-      paragraphs: [{
-        lines: SAMPLES.map(text => ({
-          text, bbox:{x0:0,y0:0,x1:500,y1:20},
-          words: text.split(" ").map(w=>({text:w,bbox:{x0:0,y0:0,x1:50,y1:20}}))
-        }))
-      }]
-    }]
-  };
-  console.group("🧪 Maskr v0.7 — test mode");
-  console.log("Input lines:\n" + SAMPLES.join("\n"));
-  const {found} = detectFromOcrData(fakeOcrData, 1);
-  const byType = {};
-  for(const f of found)(byType[f.subtype]||(byType[f.subtype]=[])).push(f.text||"?");
-  for(const [sub,pat] of Object.entries(PATTERNS)){
-    const hits=byType[sub];
-    console.log(`${hits?"✓":"✗"} ${sub.padEnd(12)} ${hits?hits.join(", "):"NOT MATCHED"}`);
-  }
-  const extras=Object.keys(byType).filter(k=>!PATTERNS[k]);
-  for(const k of extras)console.log(`  extra: ${k} → ${byType[k].join(", ")}`);
+qrDownBtn.addEventListener("click",()=>{const a=document.createElement("a");a.href=qrCanvas.toDataURL("image/png");a.download="maskr-qr.png";a.click();});
+qrCopyBtn.addEventListener("click",async()=>{try{const blob=await new Promise(res=>qrCanvas.toBlob(res,"image/png"));await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);qrCopyBtn.textContent="✓ Copied";setTimeout(()=>(qrCopyBtn.textContent="Copy to clipboard"),1500);}catch{alert("Couldn't copy. Use Download instead.");}});
+
+// Pre-load QR engine in background so first generation is instant
+setTimeout(()=>{if(activeTool!=="qr")ensureQrLib().catch(()=>{});},2000);
+
+/* ═══ TEST MODES ═══ */
+if(TEST_MODE){
+  const SAMPLES=["Email: john.doe@example.com","Phone: +44 20 7946 0958","Card: 4111 1111 1111 1111","IBAN: GB82 WEST 1234 5678 9012 34","BIC: WESTGB2L","Sort code: 12-34-56","Account: 12345678","Visit https://example.com","Address: London SW1A 2AA","Ref: 12345678901"];
+  const fakeData={blocks:[{paragraphs:[{lines:SAMPLES.map(text=>({text,bbox:{x0:0,y0:0,x1:500,y1:20},words:text.split(" ").map(w=>({text:w,bbox:{x0:0,y0:0,x1:50,y1:20}}))}))}]}]};
+  console.group("🧪 Maskr v0.8 test mode");
+  const{found}=detectFromOcrData(fakeData,1);
+  const byType={};for(const f of found)(byType[f.subtype]||(byType[f.subtype]=[])).push(f.text);
+  for(const[sub]of Object.entries(PATTERNS))console.log(`${byType[sub]?"✓":"✗"} ${sub.padEnd(12)} ${byType[sub]?byType[sub].join(", "):"NOT MATCHED"}`);
+  console.groupEnd();
+}
+
+if(TEST_PDF_MODE){
+  console.log("🧪 test-pdf=1: auto-running PDF pipeline with built-in test data after engine load");
+  const TEST_PDF_TEXT=["Email: john.doe@example.com","Phone: +44 20 7946 0958","IBAN: GB82 WEST 1234 5678 9012 34","Account: 12345678","BIC: WESTGB2L","Sort code: 12-34-56"];
+  const fakePdfLines=TEST_PDF_TEXT.map((text,i)=>({text,bbox:{x0:10,y0:i*20,x1:400,y1:(i+1)*20},words:text.split(" ").map(w=>({text:w,bbox:{x0:10,y0:i*20,x1:50,y1:(i+1)*20}}))}));
+  const fakeOcr=textLinesToFakeOcrData(fakePdfLines);
+  const{found}=detectFromOcrData(fakeOcr,1,null);
+  console.group("🧪 PDF pattern test (text-layer simulation)");
+  const byType={};for(const f of found)(byType[f.subtype]||(byType[f.subtype]=[])).push(f.text);
+  for(const[sub]of Object.entries(PATTERNS))console.log(`${byType[sub]?"✓":"✗"} ${sub.padEnd(12)} ${byType[sub]?byType[sub].join(", "):"NOT MATCHED"}`);
   console.groupEnd();
 }
 </script>
