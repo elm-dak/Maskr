@@ -213,12 +213,16 @@
     <aside class="panel">
       <h3>Detected</h3>
       <div class="toggle-list" id="toggleList"></div>
-      <button class="btn face-btn" id="findFacesBtn">⊕ Find faces</button>
-      <button class="btn face-btn" id="findNamesBtn" style="margin-top:4px">⊕ Find names</button>
-      <button class="btn face-btn" id="findWeaponsBtn" style="margin-top:4px">⊕ Find weapons</button>
-      <button class="btn face-btn" id="findAdultBtn" style="margin-top:4px">⊕ Find adult content</button>
+      <!-- Visual detections from lazy ML pipelines -->
+      <h3 style="margin-top:4px">Visual scan</h3>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn face-btn" id="findFacesBtn">⊕ Find faces</button>
+        <button class="btn face-btn" id="findNamesBtn">⊕ Find names</button>
+        <button class="btn face-btn" id="findWeaponsBtn">⊕ Find weapons</button>
+        <button class="btn face-btn" id="findAdultBtn">⊕ Find adult content</button>
+      </div>
       <!-- Confidence slider — applies to weapon + adult detection -->
-      <div style="margin-top:6px;padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
+      <div style="padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
         <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">
           <span>Detection threshold</span><span id="thresholdVal">50%</span>
         </div>
