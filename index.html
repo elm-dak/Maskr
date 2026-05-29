@@ -327,7 +327,9 @@ const LIB_URLS = {
   pdfjsMain:   ["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",        "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"],
   pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js",
   pdfLib:      ["https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",          "https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"],
-  qrcode:      ["https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js",            "https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"],
+  // qrcodejs by davidshimjs — stable on cdnjs (Cloudflare) since 2012, never breaks
+  qrcode:      ["https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+                "https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"],
 };
 const CACHE_TTL = 30 * 24 * 3600 * 1000; // 30 days
 
@@ -430,7 +432,7 @@ async function ensureQrLib() {
   setDot(qrFormDot, "loading"); setDot(qrLibDot, "loading");
   qrLibStat.textContent = "Loading QR engine…";
   try {
-    await loadLib(LIB_URLS.qrcode, "QRCode", "qrcode_1_5_3");
+    await loadLib(LIB_URLS.qrcode, "QRCode", "qrcodejs_1_0_0");
     qrLibReady = true;
     setDot(qrFormDot, "ok"); setDot(qrLibDot, "ok");
     qrLibStat.textContent = "QR engine ready";
@@ -930,8 +932,17 @@ qrGenBtn.addEventListener("click",async()=>{
     return;
   }
   try{
-    await QRCode.toCanvas(qrCanvas,content,{width:qrSize,margin:2,errorCorrectionLevel:qrEc,color:{dark:qrDarkColor,light:qrLightColor}});
-    qrEmpty.style.display="none";qrCanvas.style.display="block";qrActions.style.display="block";
+    // qrcodejs renders into a temp div; we copy its canvas to our display canvas
+    const EC = { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M, Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H };
+    const tempDiv = document.createElement("div");
+    new QRCode(tempDiv, { text: content, width: qrSize, height: qrSize, colorDark: qrDarkColor, colorLight: qrLightColor, correctLevel: EC[qrEc] || EC.M });
+    // qrcodejs may use setTimeout(0) internally — wait one tick
+    await new Promise(r => setTimeout(r, 50));
+    const src = tempDiv.querySelector("canvas");
+    if (!src) throw new Error("QR canvas not created");
+    qrCanvas.width = src.width; qrCanvas.height = src.height;
+    qrCanvas.getContext("2d").drawImage(src, 0, 0);
+    qrEmpty.style.display="none"; qrCanvas.style.display="block"; qrActions.style.display="block";
   }catch(err){console.error("QR generate:",err);qrEmpty.textContent="Couldn't generate QR: "+err.message;qrEmpty.style.display="";qrCanvas.style.display="none";qrActions.style.display="none";}
 });
 
