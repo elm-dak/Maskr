@@ -327,7 +327,7 @@ const LIB_URLS = {
   pdfjsMain:   ["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",        "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"],
   pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js",
   pdfLib:      ["https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",          "https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"],
-  qrcode:      ["https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js",            "https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"],
+  qrcode:      ["https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js",            "https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"],
 };
 const CACHE_TTL = 30 * 24 * 3600 * 1000; // 30 days
 
@@ -430,7 +430,7 @@ async function ensureQrLib() {
   setDot(qrFormDot, "loading"); setDot(qrLibDot, "loading");
   qrLibStat.textContent = "Loading QR engine…";
   try {
-    await loadLib(LIB_URLS.qrcode, "QRCode", "qrcode_1_5_4");
+    await loadLib(LIB_URLS.qrcode, "QRCode", "qrcode_1_5_3");
     qrLibReady = true;
     setDot(qrFormDot, "ok"); setDot(qrLibDot, "ok");
     qrLibStat.textContent = "QR engine ready";
@@ -765,7 +765,9 @@ async function pdfLoad(file){
   try{
     await ensurePdfJs();
     pdfState.ab=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:pdfState.ab}).promise;
+    // Always slice before passing to pdfjsLib — getDocument() transfers the
+    // ArrayBuffer to its web worker (detaching it), so pdfState.ab must stay intact.
+    const pdf=await pdfjsLib.getDocument({data:pdfState.ab.slice(0)}).promise;
     pdfState.numPages=pdf.numPages;pdfState.pageViewports=[];pdfState.detections=[];pdfState.enabled={};pdfState.pageModes=[];
     pdfPagesList.innerHTML="";
     pdfWork.classList.add("active");
@@ -851,7 +853,7 @@ async function pdfBuildAndDownload(){
   pdfDownloadBtn.disabled=true;pdfShowStatus("Building redacted PDF…",5);
   try{
     const{PDFDocument}=PDFLib;const newDoc=await PDFDocument.create();
-    const pdf=await pdfjsLib.getDocument({data:pdfState.ab}).promise;
+    const pdf=await pdfjsLib.getDocument({data:pdfState.ab.slice(0)}).promise;
     for(let pageNum=1;pageNum<=pdfState.numPages;pageNum++){
       pdfShowStatus(`Exporting page ${pageNum}/${pdfState.numPages}…`,5+Math.round(((pageNum-1)/pdfState.numPages)*90));
       const page=await pdf.getPage(pageNum);
