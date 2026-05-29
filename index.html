@@ -772,15 +772,20 @@ fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFi
 ["dragleave","drop"].forEach(ev=>imgDropZone.addEventListener(ev,e=>{e.preventDefault();imgDropZone.classList.remove("dragover");}));
 imgDropZone.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)imgLoadFile(f);});
 window.addEventListener("paste",e=>{if(activeTool!=="image")return;for(const it of(e.clipboardData?.items||[])){if(it.type.startsWith("image/")){imgLoadFile(it.getAsFile());break;}}});
-// Persist OCR language choice across sessions
+// Persist OCR language choice across sessions.
+// Use getElementById() here — pdfLangSelect const is declared later in the script.
 const _savedLang = localStorage.getItem("maskr_lang");
-if (_savedLang) { langSelect.value = _savedLang; pdfLangSelect.value = _savedLang; }
-langSelect.addEventListener("change",()=>{
+if (_savedLang) {
+  langSelect.value = _savedLang;
+  const _pdfSel = document.getElementById("pdfLangSelect");
+  if (_pdfSel) _pdfSel.value = _savedLang;
+}
+langSelect.addEventListener("change", () => {
   localStorage.setItem("maskr_lang", langSelect.value);
-  pdfLangSelect.value = langSelect.value; // keep PDF in sync
-  if(imgState.image)imgStartProcessing();
+  const _pdfSel = document.getElementById("pdfLangSelect");
+  if (_pdfSel) _pdfSel.value = langSelect.value;
+  if (imgState.image) imgStartProcessing();
 });
-pdfLangSelect.addEventListener("change",()=>{ localStorage.setItem("maskr_lang", pdfLangSelect.value); });
 
 function imgLoadFile(file){if(!file||!file.type.startsWith("image/")){imgShowError("Please drop an image file (PNG, JPG, WEBP).");return;}const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{imgState.image=img;imgStartProcessing();};img.onerror=()=>imgShowError("Couldn't read that image.");img.src=ev.target.result;};reader.onerror=()=>imgShowError("Couldn't read the file.");reader.readAsDataURL(file);}
 
@@ -1056,6 +1061,7 @@ const pdfStatusEl=document.getElementById("pdfStatus"),pdfStatusTxt=document.get
 const pdfWork=document.getElementById("pdfWork"),pdfPagesList=document.getElementById("pdfPagesList");
 const pdfToggleList=document.getElementById("pdfToggleList"),pdfPanelTitle=document.getElementById("pdfPanelTitle");
 const pdfStyleSel=document.getElementById("pdfStyleSelect"),pdfDownloadBtn=document.getElementById("pdfDownloadBtn"),pdfResetBtn=document.getElementById("pdfResetBtn"),pdfLangSelect=document.getElementById("pdfLangSelect");
+pdfLangSelect.addEventListener("change",()=>localStorage.setItem("maskr_lang",pdfLangSelect.value));
 
 pdfDropZone.addEventListener("click",()=>pdfFileInput.click());
 pdfFileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)pdfLoad(f);});
