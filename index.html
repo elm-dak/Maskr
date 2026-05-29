@@ -1187,6 +1187,48 @@ let vidDetectN = 5;
 let vidResultBlob = null;
 let vidProcessing = false;
 
+/* ── IoU tracker — keeps redactions alive between detection cycles ── */
+const VID_PERSIST  = 25;   // frames to keep a box after last detection
+const VID_MATCH    = 0.20; // min IoU to link a new detection to an existing track
+const VID_SMOOTH   = 0.35; // 0=frozen, 1=instant jump to new position
+let vidTracks = [];         // { x,y,w,h,lastSeen,id }
+
+function vidIou(a, b) {
+  const ix = Math.max(0, Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x));
+  const iy = Math.max(0, Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y));
+  const inter = ix * iy;
+  if (!inter) return 0;
+  return inter / (a.w*a.h + b.w*b.h - inter);
+}
+
+function vidUpdateTracks(newDets, frameNum) {
+  const matched = new Set();
+  for (const det of newDets) {
+    // Find the closest existing track by IoU
+    let best = null, bestScore = VID_MATCH;
+    for (const t of vidTracks) {
+      if (matched.has(t)) continue;
+      const score = vidIou(t, det);
+      if (score > bestScore) { bestScore = score; best = t; }
+    }
+    if (best) {
+      // Smooth-update the existing track's position (prevents jitter)
+      best.x = best.x*(1-VID_SMOOTH) + det.x*VID_SMOOTH;
+      best.y = best.y*(1-VID_SMOOTH) + det.y*VID_SMOOTH;
+      best.w = best.w*(1-VID_SMOOTH) + det.w*VID_SMOOTH;
+      best.h = best.h*(1-VID_SMOOTH) + det.h*VID_SMOOTH;
+      best.lastSeen = frameNum;
+      matched.add(best);
+    } else {
+      // Brand-new detection — create a fresh track
+      vidTracks.push({ ...det, lastSeen: frameNum, id: ++vidTrackId });
+    }
+  }
+  // Expire tracks that haven't been confirmed for VID_PERSIST frames
+  vidTracks = vidTracks.filter(t => frameNum - t.lastSeen < VID_PERSIST);
+}
+let vidTrackId = 0;
+
 vidStyleSel.addEventListener("click", e => {
   const opt = e.target.closest(".style-opt"); if (!opt) return;
   vidStyleSel.querySelectorAll(".style-opt").forEach(o => o.classList.remove("active"));
@@ -1277,7 +1319,7 @@ async function runVideoRedaction(file) {
   const frameMs = 1000 / FPS_OUT;
   const totalFrames = Math.ceil(duration * FPS_OUT);
   let frameNum = 0;
-  let lastBoxes = [];
+  vidTracks = []; vidTrackId = 0; // reset tracker for new video
   const t0 = performance.now();
 
   for (let t = 0; t <= duration; t += 1 / FPS_OUT) {
@@ -1287,38 +1329,36 @@ async function runVideoRedaction(file) {
     video.currentTime = t;
     await new Promise(res => { video.onseeked = res; });
 
-    // Detection every N frames
+    // Run detectors every N frames, feed results into the tracker
     if (frameNum % vidDetectN === 0) {
-      lastBoxes = [];
+      const newDets = [];
       if (vBlurFaces.checked && faceDetector) {
         try {
-          const r = faceDetector.detect(video);
-          for (const det of (r?.detections || [])) {
+          for (const det of (faceDetector.detect(video)?.detections || [])) {
             const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
             const px = w * 0.15, py = h * 0.2;
-            lastBoxes.push({ x: Math.max(0, x-px), y: Math.max(0, y-py), w: w+px*2, h: h+py*2 });
+            newDets.push({ x: Math.max(0,x-px), y: Math.max(0,y-py), w: w+px*2, h: h+py*2 });
           }
         } catch(_) {}
       }
       if (vBlurWeapons.checked && objectDetector) {
         try {
-          const r = objectDetector.detect(video);
-          for (const det of (r?.detections || [])) {
-            const cat = det.categories?.[0];
-            if (!cat || !det.boundingBox) continue;
-            // Dynamic: no class filter — let the model decide what it sees
+          for (const det of (objectDetector.detect(video)?.detections || [])) {
+            if (!det.boundingBox) continue;
             const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
             const px = w * 0.15, py = h * 0.15;
-            lastBoxes.push({ x: Math.max(0, x-px), y: Math.max(0, y-py), w: w+px*2, h: h+py*2, label: cat.categoryName });
+            newDets.push({ x: Math.max(0,x-px), y: Math.max(0,y-py), w: w+px*2, h: h+py*2 });
           }
         } catch(_) {}
       }
+      // Update tracker — new detections may merge with or extend existing tracks
+      vidUpdateTracks(newDets, frameNum);
     }
 
-    // Draw frame to output canvas
+    // Draw frame then apply ALL active tracks (including ones persisting from past frames)
     outCtx.drawImage(video, 0, 0, vw, vh);
-    for (const b of lastBoxes) {
-      applyRedactionToCtx(outCtx, outC, b.x, b.y, b.w, b.h, vidStyle);
+    for (const t_ of vidTracks) {
+      applyRedactionToCtx(outCtx, outC, t_.x, t_.y, t_.w, t_.h, vidStyle);
     }
 
     // Mirror to preview
@@ -1360,7 +1400,7 @@ vidDownloadBtn.addEventListener("click", () => {
 });
 
 vidResetBtn.addEventListener("click", () => {
-  vidProcessing = false;
+  vidProcessing = false; vidTracks = [];
   vidResultBlob = null;
   vidProcessBtn._file = null;
   vidProcessBtn.disabled = false;
