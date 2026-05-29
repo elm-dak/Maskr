@@ -716,8 +716,11 @@ let nudityScanned=false,  nsfwModel=null,       tfReady=false;
 let confidenceThreshold=0.5;
 let exportFormat="png",exportQuality=0.92;
 
-// Subtypes managed by lazy detection pipelines — preserved across OCR re-runs
-const LAZY_SUBTYPES = new Set(["face","name","weapon","adult"]);
+// Returns true for subtypes owned by lazy ML pipelines (not OCR).
+// Preserved when OCR re-runs so the two pipelines don't overwrite each other.
+function isLazySubtype(s) {
+  return s === "face" || s === "name" || s === "adult" || isObjSubtype(s);
+}
 
 function imgSaveHist(){imgHist.splice(imgHistPos+1);imgHist.push({detections:JSON.parse(JSON.stringify(imgState.detections)),enabled:JSON.parse(JSON.stringify(imgState.enabled))});if(imgHist.length>50){imgHist.shift();imgHistPos=imgHist.length-1;}else{imgHistPos++;}syncUndoRedo();}
 function imgApplyHist(s){imgState.detections=JSON.parse(JSON.stringify(s.detections));imgState.enabled=JSON.parse(JSON.stringify(s.enabled));imgRenderTogglesAndCanvas();syncUndoRedo();}
@@ -738,15 +741,20 @@ const findWeaponsBtn=document.getElementById("findWeaponsBtn"),findAdultBtn=docu
 const thresholdSlider=document.getElementById("thresholdSlider"),thresholdVal=document.getElementById("thresholdVal");
 thresholdSlider.addEventListener("input",()=>{confidenceThreshold=thresholdSlider.value/100;thresholdVal.textContent=thresholdSlider.value+"%";});
 
-// COCO classes detected by EfficientDet Lite — expanded for better coverage
-// (baseball bat, sports equipment can also appear weapon-like in context)
-const WEAPON_COCO = new Set([
-  "knife","scissors","baseball bat",
-  "bottle","fork","spoon",          // sharp / throwable objects
-  "umbrella","tennis racket","skateboard"  // blunt objects
-]);
-// Strict set — always show in results panel even without label context
-const WEAPON_STRICT = new Set(["knife","scissors","baseball bat"]);
+// Dynamic object detection — NO hardcoded class filter.
+// Every class the model returns above the threshold gets its own subtype "w:<class>".
+// These sets only control the DEFAULT ON/OFF state in the toggle panel, not whether
+// the detection happens at all. Add nothing here to "make it detect more" — lower
+// the confidence threshold slider instead.
+const OBJ_DEFAULT_ON  = new Set(["knife","scissors","gun","pistol","rifle","sword","blade","weapon","axe","machete","firearm","dagger","baseball bat","crowbar","hammer"]);
+const OBJ_DEFAULT_OFF = new Set(); // everything else starts off; user can enable manually
+
+function objSubtype(categoryName) {
+  // "Baseball Bat" → "w:baseball_bat"  (stable, URL-safe, lowercased)
+  return "w:" + categoryName.toLowerCase().replace(/\s+/g, "_");
+}
+function isObjSubtype(s) { return typeof s === "string" && s.startsWith("w:"); }
+function objLabel(subtype)  { return subtype.slice(2).replace(/_/g, " "); }
 
 imgDropZone.addEventListener("click",()=>fileInput.click());
 fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFile(f);});
@@ -787,7 +795,7 @@ async function imgStartProcessing(){
 function imgRunDetection(data,scale){
   // Preserve manual boxes AND any detections from the lazy pipelines (face, name, weapon, adult).
   // These run independently from OCR; wiping them on OCR completion is the race-condition bug.
-  imgState.detections=imgState.detections.filter(d=>d.type==="manual"||LAZY_SUBTYPES.has(d.subtype));
+  imgState.detections=imgState.detections.filter(d=>d.type==="manual"||isLazySubtype(d.subtype));
   lastOcrWords=[];const{found,isFinancial}=detectFromOcrData(data,scale,lastOcrWords);lastOcrScale=scale;
   console.log(`Maskr: OCR found ${found.length} items:`,found.map(f=>f.subtype+":"+f.text.slice(0,20)));
   for(const f of found){
@@ -812,7 +820,17 @@ function imgRenderTogglesAndCanvas(){
     row.addEventListener("click",()=>{if(!count)return;imgState.enabled[sub]=!imgState.enabled[sub];imgState.detections.forEach(d=>{if(d.type==="auto"&&d.subtype===sub)d.on=imgState.enabled[sub];});imgRenderTogglesAndCanvas();imgSaveHist();});
     toggleList.appendChild(row);if(count>0)anyAuto=true;
   }
-  for(const [sb,lbl] of [["face","Faces"],["name","Names"],["weapon","Weapons"],["adult","Adult content"]]){
+  // Dynamic object-detection subtypes (w:knife, w:person, …) — one toggle per class
+  const wSubtypes=[...new Set(imgState.detections.filter(d=>isObjSubtype(d.subtype)).map(d=>d.subtype))].sort();
+  for(const sub of wSubtypes){
+    const count=counts[sub]||0;if(count===0)continue;
+    const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sub]?"on":"off");
+    row.innerHTML=`<span class="label">${objLabel(sub)}</span><span class="count">${count}</span>`;
+    row.addEventListener("click",()=>{imgState.enabled[sub]=!imgState.enabled[sub];imgState.detections.forEach(d=>{if(d.subtype===sub)d.on=imgState.enabled[sub];});imgRenderTogglesAndCanvas();imgSaveHist();});
+    toggleList.appendChild(row);anyAuto=true;
+  }
+  // Fixed lazy subtypes (face, name, adult)
+  for(const [sb,lbl] of [["face","Faces"],["name","Names"],["adult","Adult content"]]){
     const count=counts[sb]||0;if(count===0)continue;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sb]?"on":"off");
     row.innerHTML=`<span class="label">${lbl}</span><span class="count">${count}</span>`;
     row.addEventListener("click",()=>{imgState.enabled[sb]=!imgState.enabled[sb];imgState.detections.forEach(d=>{if(d.subtype===sb)d.on=imgState.enabled[sb];});imgRenderTogglesAndCanvas();imgSaveHist();});
@@ -877,10 +895,11 @@ findNamesBtn.addEventListener("click",async()=>{
 findWeaponsBtn.addEventListener("click",async()=>{
   if(!imgState.image)return;
   if(weaponsScanned){
-    const has=imgState.detections.some(d=>d.subtype==="weapon");
-    if(!has){imgShowError("No weapons detected. Note: model covers knives & scissors (COCO). Guns require a specialized model.");return;}
-    imgState.enabled.weapon=!imgState.enabled.weapon;
-    imgState.detections.forEach(d=>{if(d.subtype==="weapon")d.on=imgState.enabled.weapon;});
+    const wDets=imgState.detections.filter(d=>isObjSubtype(d.subtype));
+    if(!wDets.length){imgShowError("No objects detected. Try lowering the threshold and re-scanning.");return;}
+    // Toggle all object detections on/off as a group
+    const anyOn=wDets.some(d=>d.on);
+    wDets.forEach(d=>{d.on=!anyOn;imgState.enabled[d.subtype]=!anyOn;});
     imgRenderTogglesAndCanvas();imgSaveHist();return;
   }
   findWeaponsBtn.disabled=true;findWeaponsBtn.classList.add("working");
@@ -894,28 +913,32 @@ findWeaponsBtn.addEventListener("click",async()=>{
     findWeaponsBtn.textContent="Scanning for weapons…";
     console.log("Maskr: Weapon detection start, threshold",confidenceThreshold);
     const result=objectDetector.detect(imgState.image);
+    const allDets=result?.detections||[];
+    console.log("Maskr: Object detector raw output:",allDets.map(d=>d.categories?.[0]?.categoryName+"="+d.categories?.[0]?.score?.toFixed(3)));
     let added=0;
-    for(const det of(result?.detections||[])){
-      const cat=det.categories?.[0];if(!cat)continue;
-      const name=(cat.categoryName||"").toLowerCase();
-      if(!WEAPON_COCO.has(name))continue;
-      const box=det.boundingBox;if(!box)continue;
-      const{originX:x,originY:y,width:w,height:h}=box;
-      const px=w*.2,py=h*.2;
-      imgState.detections.push({type:"auto",subtype:"weapon",
+    for(const det of allDets){
+      const cat=det.categories?.[0];if(!cat||!det.boundingBox)continue;
+      const{originX:x,originY:y,width:w,height:h}=det.boundingBox;
+      if(w<=0||h<=0)continue;
+      const sub=objSubtype(cat.categoryName);
+      const px=w*.15,py=h*.15;
+      // Default on for known dangerous classes; off for everything else (user can enable)
+      const defaultOn=OBJ_DEFAULT_ON.has(cat.categoryName.toLowerCase())||cat.score>0.85;
+      imgState.detections.push({type:"auto",subtype:sub,
         text:`${cat.categoryName} ${(cat.score*100).toFixed(0)}%`,
-        x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});
+        x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:defaultOn});
+      if(!(sub in imgState.enabled))imgState.enabled[sub]=defaultOn;
       added++;
     }
-    weaponsScanned=true;imgState.enabled.weapon=added>0;
-    console.log(`Maskr: Weapon detection found ${added}. All detections:`,result?.detections?.map(d=>d.categories?.[0]?.categoryName+"="+d.categories?.[0]?.score?.toFixed(2)));
-    if(added===0)imgShowError("No weapons found. This model detects knives and scissors from COCO (80 classes). Guns require a specialized model — planned for v0.10.");
+    weaponsScanned=true;
+    console.log(`Maskr: Object detection added ${added} detections (${[...new Set(allDets.map(d=>d.categories?.[0]?.categoryName))].join(", ")})`);
+    if(added===0)imgShowError("No objects detected above threshold. Try lowering the threshold slider and re-scanning.");
     else{imgHideStatus();imgSaveHist();}
     imgRenderTogglesAndCanvas();
   }catch(err){console.error("Maskr: Weapon detection error:",err);imgShowError("Couldn't load weapon detector. Check connection.");}
   finally{
     findWeaponsBtn.disabled=false;findWeaponsBtn.classList.remove("working");
-    findWeaponsBtn.textContent=(weaponsScanned&&imgState.detections.some(d=>d.subtype==="weapon"))?"Toggle weapons":"⊕ Find weapons";
+    findWeaponsBtn.textContent=(weaponsScanned&&imgState.detections.some(d=>isObjSubtype(d.subtype)))?"Toggle all objects":"⊕ Find weapons / objects";
   }
 });
 
@@ -1282,9 +1305,11 @@ async function runVideoRedaction(file) {
           const r = objectDetector.detect(video);
           for (const det of (r?.detections || [])) {
             const cat = det.categories?.[0];
-            if (!cat || !WEAPON_COCO.has((cat.categoryName||"").toLowerCase())) continue;
+            if (!cat || !det.boundingBox) continue;
+            // Dynamic: no class filter — let the model decide what it sees
             const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
-            lastBoxes.push({ x: Math.max(0, x-w*.1), y: Math.max(0, y-h*.1), w: w*1.2, h: h*1.2 });
+            const px = w * 0.15, py = h * 0.15;
+            lastBoxes.push({ x: Math.max(0, x-px), y: Math.max(0, y-py), w: w+px*2, h: h+py*2, label: cat.categoryName });
           }
         } catch(_) {}
       }
