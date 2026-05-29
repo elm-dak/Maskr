@@ -14,13 +14,39 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <!-- All other heavy libs (pdf.js, pdf-lib, qrcode) are lazy-loaded with CDN fallback -->
 <script type="module">
+  const MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
+  const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+  const OBJ_MODEL  = "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
+
+  async function _mpVision() {
+    const v = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18");
+    const resolver = await v.FilesetResolver.forVisionTasks(MP_WASM);
+    return { v, resolver };
+  }
+
   window.__loadFaceDetector = async function () {
-    const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18");
-    const { FaceDetector, FilesetResolver } = vision;
-    const resolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
-    return FaceDetector.createFromOptions(resolver, {
-      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate: "GPU" },
+    const { v, resolver } = await _mpVision();
+    return v.FaceDetector.createFromOptions(resolver, {
+      baseOptions: { modelAssetPath: FACE_MODEL, delegate: "GPU" },
       runningMode: "IMAGE", minDetectionConfidence: 0.5
+    });
+  };
+  // CPU fallback — used when GPU delegate fails (WebGL not available)
+  window.__loadFaceDetectorCPU = async function () {
+    const { v, resolver } = await _mpVision();
+    return v.FaceDetector.createFromOptions(resolver, {
+      baseOptions: { modelAssetPath: FACE_MODEL, delegate: "CPU" },
+      runningMode: "IMAGE", minDetectionConfidence: 0.5
+    });
+  };
+  // Object Detector (EfficientDet Lite) — for weapon detection (COCO classes)
+  window.__loadObjectDetector = async function (threshold) {
+    const { v, resolver } = await _mpVision();
+    return v.ObjectDetector.createFromOptions(resolver, {
+      baseOptions: { modelAssetPath: OBJ_MODEL, delegate: "GPU" },
+      runningMode: "IMAGE",
+      scoreThreshold: threshold || 0.4,
+      maxResults: 30
     });
   };
 </script>
@@ -147,7 +173,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.8 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.9 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -189,6 +215,16 @@
       <div class="toggle-list" id="toggleList"></div>
       <button class="btn face-btn" id="findFacesBtn">⊕ Find faces</button>
       <button class="btn face-btn" id="findNamesBtn" style="margin-top:4px">⊕ Find names</button>
+      <button class="btn face-btn" id="findWeaponsBtn" style="margin-top:4px">⊕ Find weapons</button>
+      <button class="btn face-btn" id="findAdultBtn" style="margin-top:4px">⊕ Find adult content</button>
+      <!-- Confidence slider — applies to weapon + adult detection -->
+      <div style="margin-top:6px;padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px">
+          <span>Detection threshold</span><span id="thresholdVal">50%</span>
+        </div>
+        <input type="range" id="thresholdSlider" min="20" max="85" value="50" style="width:100%;accent-color:var(--ink);cursor:pointer" />
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Weapons · adult content · re-scan after changing</div>
+      </div>
       <div class="hint" id="manualHint">Switch to <strong>Draw</strong> mode to drag boxes. <strong>Right-click</strong> any box to remove it.</div>
       <h3 style="margin-top:8px">Style</h3>
       <div class="style-select" id="imgStyleSelect">
@@ -593,8 +629,16 @@ document.getElementById("tabQr").addEventListener("click",   ()=>switchTool("qr"
 /* ═══ IMAGE TOOL ═══ */
 const imgState={image:null,detections:[],style:"block",enabled:{},mode:"auto",drawing:false,drawStart:null};
 const imgHist=[]; let imgHistPos=-1;
-let lastOcrWords=[],lastOcrScale=1,facesScanned=false,namesScanned=false,nlpLib=null,faceDetector=null;
+let lastOcrWords=[],lastOcrScale=1;
+let facesScanned=false,   faceDetector=null,   nlpLib=null;
+let namesScanned=false;
+let weaponsScanned=false, objectDetector=null;
+let nudityScanned=false,  nsfwModel=null,       tfReady=false;
+let confidenceThreshold=0.5;
 let exportFormat="png",exportQuality=0.92;
+
+// Subtypes managed by lazy detection pipelines — preserved across OCR re-runs
+const LAZY_SUBTYPES = new Set(["face","name","weapon","adult"]);
 
 function imgSaveHist(){imgHist.splice(imgHistPos+1);imgHist.push({detections:JSON.parse(JSON.stringify(imgState.detections)),enabled:JSON.parse(JSON.stringify(imgState.enabled))});if(imgHist.length>50){imgHist.shift();imgHistPos=imgHist.length-1;}else{imgHistPos++;}syncUndoRedo();}
 function imgApplyHist(s){imgState.detections=JSON.parse(JSON.stringify(s.detections));imgState.enabled=JSON.parse(JSON.stringify(s.enabled));imgRenderTogglesAndCanvas();syncUndoRedo();}
@@ -611,6 +655,12 @@ const downloadBtn=document.getElementById("downloadBtn"),copyBtn=document.getEle
 const undoBtn=document.getElementById("undoBtn"),redoBtn=document.getElementById("redoBtn");
 const modeAuto=document.getElementById("modeAuto"),modeDraw=document.getElementById("modeDraw"),manualHint=document.getElementById("manualHint");
 const findFacesBtn=document.getElementById("findFacesBtn"),findNamesBtn=document.getElementById("findNamesBtn"),langSelect=document.getElementById("langSelect");
+const findWeaponsBtn=document.getElementById("findWeaponsBtn"),findAdultBtn=document.getElementById("findAdultBtn");
+const thresholdSlider=document.getElementById("thresholdSlider"),thresholdVal=document.getElementById("thresholdVal");
+thresholdSlider.addEventListener("input",()=>{confidenceThreshold=thresholdSlider.value/100;thresholdVal.textContent=thresholdSlider.value+"%";});
+
+// COCO classes that MediaPipe EfficientDet Lite can detect as weapon-adjacent
+const WEAPON_COCO = new Set(["knife","scissors","baseball bat"]);
 
 imgDropZone.addEventListener("click",()=>fileInput.click());
 fileInput.addEventListener("change",e=>{const f=e.target.files[0];if(f)imgLoadFile(f);});
@@ -626,9 +676,13 @@ function preprocessForOcr(img){const tMin=1500,ls=Math.max(img.naturalWidth,img.
 
 async function imgStartProcessing(){
   imgHideError();imgShowStatus("Preparing image…",5);
-  facesScanned=false;namesScanned=false;imgState.detections=[];imgState.enabled={};imgHist.length=0;imgHistPos=-1;syncUndoRedo();lastOcrWords=[];lastOcrScale=1;
+  console.log("Maskr: OCR start —",imgState.image?.naturalWidth,"×",imgState.image?.naturalHeight,"px");
+  facesScanned=false;namesScanned=false;weaponsScanned=false;nudityScanned=false;
+  imgState.detections=[];imgState.enabled={};imgHist.length=0;imgHistPos=-1;syncUndoRedo();lastOcrWords=[];lastOcrScale=1;
   findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");
   findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;
+  findWeaponsBtn.textContent="⊕ Find weapons";findWeaponsBtn.disabled=false;
+  findAdultBtn.textContent="⊕ Find adult content";findAdultBtn.disabled=false;
   canvas.width=imgState.image.naturalWidth;canvas.height=imgState.image.naturalHeight;ctx.drawImage(imgState.image,0,0);
   imgWork.classList.add("active");imgDropZone.style.display="none";
   const{canvas:ocrCanvas,scale}=preprocessForOcr(imgState.image);
@@ -645,8 +699,11 @@ async function imgStartProcessing(){
 }
 
 function imgRunDetection(data,scale){
-  imgState.detections=imgState.detections.filter(d=>d.type==="manual");
+  // Preserve manual boxes AND any detections from the lazy pipelines (face, name, weapon, adult).
+  // These run independently from OCR; wiping them on OCR completion is the race-condition bug.
+  imgState.detections=imgState.detections.filter(d=>d.type==="manual"||LAZY_SUBTYPES.has(d.subtype));
   lastOcrWords=[];const{found,isFinancial}=detectFromOcrData(data,scale,lastOcrWords);lastOcrScale=scale;
+  console.log(`Maskr: OCR found ${found.length} items:`,found.map(f=>f.subtype+":"+f.text.slice(0,20)));
   for(const f of found){
     let merged=false;
     for(const d of imgState.detections){if(d.type==="auto"&&d.subtype===f.subtype&&overlapRatio(d,f)>0.6){const x2=Math.max(d.x+d.w,f.x+f.w),y2=Math.max(d.y+d.h,f.y+f.h);d.x=Math.min(d.x,f.x);d.y=Math.min(d.y,f.y);d.w=x2-d.x;d.h=y2-d.y;merged=true;break;}}
@@ -654,11 +711,14 @@ function imgRunDetection(data,scale){
   }
   for(const sub of Object.keys(PATTERNS)){const has=imgState.detections.some(d=>d.type==="auto"&&d.subtype===sub);const def=(sub==="longnum"&&isFinancial)||PATTERNS[sub].defaultOn;imgState.enabled[sub]=def&&has;}
   imgState.detections.forEach(d=>{if(d.type==="auto")d.on=imgState.enabled[d.subtype];});
+  console.log(`Maskr: OCR detections written — state now has ${imgState.detections.length} total (incl. lazy):`,imgState.detections.map(d=>d.subtype));
   imgHideStatus();imgRenderTogglesAndCanvas();imgSaveHist();
 }
 
 function imgRenderTogglesAndCanvas(){
   const counts={};imgState.detections.forEach(d=>{if(d.type==="auto")counts[d.subtype]=(counts[d.subtype]||0)+1;});
+  const stateTypes=[...new Set(imgState.detections.map(d=>d.subtype))];
+  console.log(`Maskr: render — ${imgState.detections.length} detections, types: [${stateTypes.join(", ")}]`);
   toggleList.innerHTML="";let anyAuto=false;
   for(const [sub,pat] of Object.entries(PATTERNS)){
     const count=counts[sub]||0;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sub]?"on":"off");if(count===0)row.style.opacity=0.35;
@@ -666,7 +726,7 @@ function imgRenderTogglesAndCanvas(){
     row.addEventListener("click",()=>{if(!count)return;imgState.enabled[sub]=!imgState.enabled[sub];imgState.detections.forEach(d=>{if(d.type==="auto"&&d.subtype===sub)d.on=imgState.enabled[sub];});imgRenderTogglesAndCanvas();imgSaveHist();});
     toggleList.appendChild(row);if(count>0)anyAuto=true;
   }
-  for(const [sb,lbl] of [["face","Faces"],["name","Names"]]){
+  for(const [sb,lbl] of [["face","Faces"],["name","Names"],["weapon","Weapons"],["adult","Adult content"]]){
     const count=counts[sb]||0;if(count===0)continue;const row=document.createElement("div");row.className="toggle "+(imgState.enabled[sb]?"on":"off");
     row.innerHTML=`<span class="label">${lbl}</span><span class="count">${count}</span>`;
     row.addEventListener("click",()=>{imgState.enabled[sb]=!imgState.enabled[sb];imgState.detections.forEach(d=>{if(d.subtype===sb)d.on=imgState.enabled[sb];});imgRenderTogglesAndCanvas();imgSaveHist();});
@@ -691,11 +751,17 @@ findFacesBtn.addEventListener("click",async()=>{
   if(facesScanned){const has=imgState.detections.some(d=>d.subtype==="face");if(!has){imgShowError("No faces found.");return;}imgState.enabled.face=!imgState.enabled.face;imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});imgRenderTogglesAndCanvas();imgSaveHist();return;}
   findFacesBtn.classList.add("working");findFacesBtn.textContent="Loading face model…";
   try{
-    if(!faceDetector)faceDetector=await window.__loadFaceDetector();
+    if(!faceDetector){
+      console.log("Maskr: Face detector loading (GPU)…");
+      try{ faceDetector=await window.__loadFaceDetector(); console.log("Maskr: Face detector ready (GPU)"); }
+      catch(gpuErr){ console.warn("Maskr: GPU delegate failed, retrying with CPU:",gpuErr.message); faceDetector=await window.__loadFaceDetectorCPU(); console.log("Maskr: Face detector ready (CPU fallback)"); }
+    }
     findFacesBtn.textContent="Scanning faces…";
+    console.log("Maskr: Face detection start");
     const result=faceDetector.detect(imgState.image);let added=0;
     for(const det of(result?.detections||[])){const box=det.boundingBox;if(!box)continue;const{originX:x,originY:y,width:w,height:h}=box;const px=w*.15,py=h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});added++;}
     facesScanned=true;imgState.enabled.face=added>0;
+    console.log(`Maskr: Face detection found ${added} faces — state now:`,imgState.detections.filter(d=>d.subtype==="face").length,"face entries");
     if(added===0)imgShowError("No faces found.");else{imgHideStatus();imgSaveHist();}
     imgRenderTogglesAndCanvas();
   }catch(err){console.error(err);imgShowError("Couldn't load face detector.");}
@@ -721,6 +787,100 @@ findNamesBtn.addEventListener("click",async()=>{
   finally{findNamesBtn.disabled=false;findNamesBtn.textContent=(namesScanned&&imgState.detections.some(d=>d.subtype==="name"))?"Toggle names":"⊕ Find names";}
 });
 
+/* ── Find weapons (MediaPipe EfficientDet Lite / COCO) ── */
+findWeaponsBtn.addEventListener("click",async()=>{
+  if(!imgState.image)return;
+  if(weaponsScanned){
+    const has=imgState.detections.some(d=>d.subtype==="weapon");
+    if(!has){imgShowError("No weapons detected. Note: model covers knives & scissors (COCO). Guns require a specialized model.");return;}
+    imgState.enabled.weapon=!imgState.enabled.weapon;
+    imgState.detections.forEach(d=>{if(d.subtype==="weapon")d.on=imgState.enabled.weapon;});
+    imgRenderTogglesAndCanvas();imgSaveHist();return;
+  }
+  findWeaponsBtn.disabled=true;findWeaponsBtn.classList.add("working");
+  findWeaponsBtn.textContent="Loading weapon detector (~3.4 MB)…";
+  try{
+    if(!objectDetector){
+      console.log("Maskr: Object Detector loading (EfficientDet Lite, COCO)…");
+      objectDetector=await window.__loadObjectDetector(confidenceThreshold);
+      console.log("Maskr: Object Detector ready");
+    }
+    findWeaponsBtn.textContent="Scanning for weapons…";
+    console.log("Maskr: Weapon detection start, threshold",confidenceThreshold);
+    const result=objectDetector.detect(imgState.image);
+    let added=0;
+    for(const det of(result?.detections||[])){
+      const cat=det.categories?.[0];if(!cat)continue;
+      const name=(cat.categoryName||"").toLowerCase();
+      if(!WEAPON_COCO.has(name))continue;
+      const box=det.boundingBox;if(!box)continue;
+      const{originX:x,originY:y,width:w,height:h}=box;
+      const px=w*.2,py=h*.2;
+      imgState.detections.push({type:"auto",subtype:"weapon",
+        text:`${cat.categoryName} ${(cat.score*100).toFixed(0)}%`,
+        x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});
+      added++;
+    }
+    weaponsScanned=true;imgState.enabled.weapon=added>0;
+    console.log(`Maskr: Weapon detection found ${added}. All detections:`,result?.detections?.map(d=>d.categories?.[0]?.categoryName+"="+d.categories?.[0]?.score?.toFixed(2)));
+    if(added===0)imgShowError("No weapons found. This model detects knives and scissors from COCO (80 classes). Guns require a specialized model — planned for v0.10.");
+    else{imgHideStatus();imgSaveHist();}
+    imgRenderTogglesAndCanvas();
+  }catch(err){console.error("Maskr: Weapon detection error:",err);imgShowError("Couldn't load weapon detector. Check connection.");}
+  finally{
+    findWeaponsBtn.disabled=false;findWeaponsBtn.classList.remove("working");
+    findWeaponsBtn.textContent=(weaponsScanned&&imgState.detections.some(d=>d.subtype==="weapon"))?"Toggle weapons":"⊕ Find weapons";
+  }
+});
+
+/* ── Find adult content (NSFWJS + TF.js) ── */
+findAdultBtn.addEventListener("click",async()=>{
+  if(!imgState.image)return;
+  if(nudityScanned){
+    const has=imgState.detections.some(d=>d.subtype==="adult");
+    if(!has){imgShowError("No adult content detected.");return;}
+    imgState.enabled.adult=!imgState.enabled.adult;
+    imgState.detections.forEach(d=>{if(d.subtype==="adult")d.on=imgState.enabled.adult;});
+    imgRenderTogglesAndCanvas();imgSaveHist();return;
+  }
+  findAdultBtn.disabled=true;findAdultBtn.classList.add("working");
+  try{
+    if(!tfReady){
+      findAdultBtn.textContent="Loading TensorFlow.js…";
+      await loadLib(["https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js","https://unpkg.com/@tensorflow/tfjs@4.15.0/dist/tf.min.js"],"tf","tfjs_4_15_0");
+      tfReady=true;
+    }
+    if(!nsfwModel){
+      findAdultBtn.textContent="Loading content safety model (~5 MB)…";
+      await loadLib(["https://cdn.jsdelivr.net/npm/nsfwjs@4.1.0/dist/nsfwjs.min.js","https://unpkg.com/nsfwjs@4.1.0/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_4_1_0");
+      nsfwModel=await nsfwjs.load("https://cdn.jsdelivr.net/npm/nsfwjs@4.1.0/dist/quant_nsfw_mobilenet/");
+    }
+    findAdultBtn.textContent="Analysing content…";
+    console.log("Maskr: NSFWJS classification start, threshold",confidenceThreshold);
+    const preds=await nsfwModel.classify(imgState.image);
+    console.log("Maskr: NSFWJS predictions:",preds.map(p=>p.className+"="+p.probability.toFixed(3)));
+    const unsafe=preds.find(p=>["Porn","Hentai"].includes(p.className)&&p.probability>confidenceThreshold)
+               ||preds.find(p=>p.className==="Sexy"&&p.probability>Math.min(.8,confidenceThreshold+.2));
+    let added=0;
+    if(unsafe){
+      imgState.detections.push({type:"auto",subtype:"adult",
+        text:`${unsafe.className} ${(unsafe.probability*100).toFixed(0)}%`,
+        x:0,y:0,w:imgState.image.naturalWidth,h:imgState.image.naturalHeight,on:true});
+      added=1;
+      imgHideStatus();
+    }
+    nudityScanned=true;imgState.enabled.adult=added>0;
+    console.log(`Maskr: Adult content detection — added ${added} detection(s)`);
+    if(added===0)imgShowError("No adult content detected (threshold "+Math.round(confidenceThreshold*100)+"%).");
+    else{imgSaveHist();}
+    imgRenderTogglesAndCanvas();
+  }catch(err){console.error("Maskr: Adult detection error:",err);imgShowError("Couldn't load content safety model. Check connection.");}
+  finally{
+    findAdultBtn.disabled=false;findAdultBtn.classList.remove("working");
+    findAdultBtn.textContent=(nudityScanned&&imgState.detections.some(d=>d.subtype==="adult"))?"Toggle adult":"⊕ Find adult content";
+  }
+});
+
 function imgSetMode(m){imgState.mode=m;modeAuto.classList.toggle("active",m==="auto");modeDraw.classList.toggle("active",m==="draw");canvas.style.cursor=m==="draw"?"crosshair":"default";}
 modeAuto.addEventListener("click",()=>imgSetMode("auto"));modeDraw.addEventListener("click",()=>imgSetMode("draw"));
 
@@ -736,7 +896,16 @@ window.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.
 undoBtn.addEventListener("click",imgUndo);redoBtn.addEventListener("click",imgRedo);
 downloadBtn.addEventListener("click",()=>{const mime={png:"image/png",jpg:"image/jpeg",webp:"image/webp"}[exportFormat]||"image/png";canvas.toBlob(blob=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`redacted.${exportFormat}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},mime,exportFormat==="png"?undefined:exportQuality);});
 copyBtn.addEventListener("click",async()=>{try{const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);copyBtn.textContent="✓ Copied";setTimeout(()=>(copyBtn.textContent="Copy to clipboard"),1500);}catch{alert("Couldn't copy. Use Download instead.");}});
-imgResetBtn.addEventListener("click",()=>{imgState.image=null;imgState.detections=[];imgState.enabled={};imgState.mode="auto";imgHist.length=0;imgHistPos=-1;facesScanned=false;namesScanned=false;lastOcrWords=[];findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;syncUndoRedo();imgSetMode("auto");imgWork.classList.remove("active");imgDropZone.style.display="block";fileInput.value="";imgHideStatus();});
+imgResetBtn.addEventListener("click",()=>{
+  imgState.image=null;imgState.detections=[];imgState.enabled={};imgState.mode="auto";
+  imgHist.length=0;imgHistPos=-1;
+  facesScanned=false;namesScanned=false;weaponsScanned=false;nudityScanned=false;lastOcrWords=[];
+  findFacesBtn.textContent="⊕ Find faces";findFacesBtn.classList.remove("working");
+  findNamesBtn.textContent="⊕ Find names";findNamesBtn.disabled=false;
+  findWeaponsBtn.textContent="⊕ Find weapons";findWeaponsBtn.disabled=false;
+  findAdultBtn.textContent="⊕ Find adult content";findAdultBtn.disabled=false;
+  syncUndoRedo();imgSetMode("auto");imgWork.classList.remove("active");imgDropZone.style.display="block";fileInput.value="";imgHideStatus();
+});
 function imgShowStatus(t,p){imgStatus.classList.add("show");imgStatus.classList.remove("error");imgStatusTxt.textContent=t;imgStatusBar.style.width=(p||0)+"%";}
 function imgHideStatus(){imgStatus.classList.remove("show");imgStatusBar.style.width="0%";}
 function imgShowError(t){imgStatus.classList.add("show","error");imgStatusTxt.textContent="⚠ "+t;imgStatusBar.style.width="100%";}

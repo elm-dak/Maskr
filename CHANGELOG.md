@@ -6,6 +6,26 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.9 — 2026-05-29
+### Added — content safety detection
+- **Find weapons** (lazy-loaded, MediaPipe EfficientDet Lite, ~3.4 MB one-time): detects knives and scissors from COCO 80-class model with bounding boxes. GPU delegate with automatic CPU fallback. 20% padding applied around detected boxes. Clear note shown to users when no weapons found: gun detection requires a specialized model (v0.10).
+- **Find adult content** (lazy-loaded, NSFWJS + TensorFlow.js, ~6 MB one-time): classifies image via MobileNet NSFW model. Flags Porn/Hentai at configurable threshold, Sexy at threshold+0.2. When unsafe content detected, adds a full-image redaction box (can be refined with manual Draw mode boxes). All predictions logged to console.
+- **Detection threshold slider** in panel: applies to weapon and adult detection. Default 50%. Re-scan after adjusting.
+- Both new detection types integrate with existing Block/Blur/Pixel redaction styles and the undo/redo history system.
+
+### Fixed — Part 1 (v0.8.1 merged here): face + OCR conflict
+- **Race condition (root cause)**: `imgRunDetection()` (called when OCR finishes) was doing `state.detections = filter(manual-only)`, which wiped face/name/weapon/adult detections added by independent lazy pipelines. If the user clicked "Find Faces" while OCR was still running, faces were silently cleared the moment OCR completed. Fixed: filter now preserves all `LAZY_SUBTYPES` (face, name, weapon, adult).
+- **GPU→CPU fallback**: Face detector now tries GPU delegate first; on failure (WebGL not available or GPU locked) automatically retries with CPU delegate. No silent failure.
+- **Console logging added** throughout: OCR start, found count, state after write; face detector load/ready/start/found; render call with type list. Diagnosing future issues is now a 10-second console read.
+- **Reset completeness**: `imgResetBtn` and `imgStartProcessing` both now reset `weaponsScanned`, `nudityScanned` in addition to existing flags.
+
+### Known limitations (v0.10 planned)
+- Gun/firearm detection: COCO does not include a gun class. A specialized weapon dataset model is required.
+- Blood/gore detection: no browser-compatible model with bounding boxes exists at this time. Planned.
+- Adult content: NSFWJS returns image-level classification only — no bounding box. Full-image redaction is added; user can trim with manual boxes.
+
+---
+
 ## v0.8 — 2026-05-29
 ### Fixed — QR generator
 - **Root cause**: `qrcode@1.5.3` was loaded via a `<script>` tag in `<head>` at page startup. The CDN path changed and the script failed silently, leaving `QRCode` undefined. The generator then showed the dead error message.
