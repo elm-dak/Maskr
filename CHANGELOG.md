@@ -6,6 +6,25 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.7 — 2026-05-29
+### Added
+- **BIC / SWIFT detection** — 8- or 11-char pattern (bank + country + location + optional branch), validated against a full ISO country-code set. Almost zero false positives.
+- **Sort code** — UK sort codes in `DD-DD-DD` or `DD DD DD` format.
+- **Account number** — 7–10 digit runs detected only when the same line contains a label word (Account, Acct, A/C, Compte, حساب, Cuenta, etc.) in English, French, Arabic, and Spanish.
+- **IBAN overhaul** — regex now matches space-formatted IBANs (`GB82 WEST 1234 5678 9012 34`). Added Mod-97 checksum validation (eliminates all false positives) and a 66-country IBAN country-code allowlist.
+- **Phone false-positive fix** — phones without a `+`/`00` international prefix are only flagged when the same line contains a label word (Phone, Tel, Mobile, Téléphone, الهاتف, Teléfono, etc.). Removes most spurious matches.
+- **Address / postcode detection** — matches UK (`SW1A 2AA`) and Canadian (`K1A 0B1`) postcodes standalone; US 5-digit ZIPs only when the line contains an address keyword. Off by default; toggle in the panel.
+- **Names NER** — "Find names" button lazy-loads compromise.js (~500 KB, once) and runs in-browser people detection. Found names are mapped back to OCR word bboxes and added as redactable boxes.
+- **Financial document heuristic** — if OCR text contains words like IBAN, Account, Statement, Invoice, Balance, the "Long numbers" toggle auto-enables.
+- **Multi-language label dictionaries** — label matching for account, phone, email, IBAN, BIC, sort code, and address now covers English, French, Arabic, and Spanish.
+- **Debug overlay** (`?debug=1`) — draws faint blue boxes around every OCR word with its recognized text, making detection gaps immediately diagnosable.
+- **Test mode** (`?test=1`) — on page load, runs all detection patterns against a hardcoded sample containing one of each type and logs `✓`/`✗` per pattern to the console.
+
+### Fixed
+- **Tab switching broken** — `switchTool` was building element IDs as `"imageTab"` etc. but HTML uses `"tabImage"` etc. The TypeError fired after `activeTool` was already mutated, causing tabs to stay blank AND Ctrl+V paste to stop working (paste guard checked the stale `activeTool` value). Fixed with a lookup map.
+
+---
+
 ## v0.6 — 2026-05-29
 ### Added
 - **QR Code Generator** — new QR tab. Supports URL, plain text, WiFi credentials (SSID/password/security/hidden), and vCard contacts. Size (S/M/L), error correction (L/M/Q), custom dark/light colors. Download PNG, copy to clipboard.
