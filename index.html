@@ -304,7 +304,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.3 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.4 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -804,7 +804,30 @@ function applyRedactionToCtx(ctx2,src,x,y,w,h,style){
   else if(style==="blur")blurRgn(ctx2,src,x,y,w,h,Math.max(8,Math.round(h*.6)));
   else pixelRgn(ctx2,src,x,y,w,h,Math.max(6,Math.round(h*.35)));
 }
-function blurRgn(ctx2,src,x,y,w,h,r){const off=document.createElement("canvas");off.width=w;off.height=h;const oc=off.getContext("2d");oc.filter=`blur(${r}px)`;oc.drawImage(src,x-r,y-r,w+r*2,h+r*2,-r,-r,w+r*2,h+r*2);ctx2.drawImage(off,x,y);}
+// Does this browser's canvas honour ctx.filter? Older iOS Safari silently
+// ignores it — which would draw the region back UNBLURRED (a privacy leak),
+// the exact "blur doesn't show on phone" bug. Detect once and fall back.
+const CTX_FILTER_OK=(()=>{try{const c=document.createElement("canvas").getContext("2d");c.filter="blur(2px)";return c.filter==="blur(2px)";}catch(_){return false;}})();
+function blurRgn(ctx2,src,x,y,w,h,r){
+  if(w<=0||h<=0)return;
+  if(CTX_FILTER_OK){
+    const off=document.createElement("canvas");off.width=Math.max(1,Math.round(w));off.height=Math.max(1,Math.round(h));
+    const oc=off.getContext("2d");oc.filter=`blur(${r}px)`;
+    oc.drawImage(src,x-r,y-r,w+r*2,h+r*2,-r,-r,w+r*2,h+r*2);ctx2.drawImage(off,x,y);
+    return;
+  }
+  // Fallback (works everywhere): collapse the region to a few pixels then
+  // smooth-upscale it back. Strong enough that the content is unrecoverable.
+  const factor=Math.max(6,Math.min(24,Math.round(r)));
+  const dw=Math.max(1,Math.round(w/factor)),dh=Math.max(1,Math.round(h/factor));
+  const tmp=document.createElement("canvas");tmp.width=dw;tmp.height=dh;
+  const tc=tmp.getContext("2d");tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality="high";
+  tc.drawImage(src,x,y,w,h,0,0,dw,dh);
+  const prevSmooth=ctx2.imageSmoothingEnabled,prevQual=ctx2.imageSmoothingQuality;
+  ctx2.imageSmoothingEnabled=true;ctx2.imageSmoothingQuality="high";
+  ctx2.drawImage(tmp,0,0,dw,dh,x,y,w,h);
+  ctx2.imageSmoothingEnabled=prevSmooth;ctx2.imageSmoothingQuality=prevQual;
+}
 function pixelRgn(ctx2,src,x,y,w,h,size){const off=document.createElement("canvas");off.width=Math.max(1,Math.floor(w/size));off.height=Math.max(1,Math.floor(h/size));const oc=off.getContext("2d");oc.imageSmoothingEnabled=false;oc.drawImage(src,x,y,w,h,0,0,off.width,off.height);ctx2.imageSmoothingEnabled=false;ctx2.drawImage(off,0,0,off.width,off.height,x,y,w,h);ctx2.imageSmoothingEnabled=true;}
 function dataUrlToBytes(url){const bin=atob(url.split(",")[1]);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
 

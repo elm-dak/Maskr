@@ -6,6 +6,11 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.10.4 — 2026-05-30
+### Fixed — blur redaction did nothing on mobile (privacy leak)
+- The blur style relied on canvas `ctx.filter = blur(...)`, which **older iOS Safari silently ignores** — so on those phones the region was drawn back **unblurred**, i.e. not redacted at all. Worked on desktop, leaked on mobile.
+- Now feature-detects `ctx.filter` support once. Where it's missing, a cross-browser fallback (heavy downscale + smooth upscale) obscures the region instead. Verified with Playwright by simulating an iOS browser that ignores `ctx.filter`: a high-contrast checkerboard's pixel variance collapses from 16256 → 67 (fully obscured) instead of staying unchanged. Applies everywhere blur is used — image, PDF export, and video.
+
 ## v0.10.3 — 2026-05-30
 ### Added — Video: draw your own redaction boxes
 - The first frame now shows as soon as you drop a video. **Drag on it to add a fixed redaction box** (right-click a box to remove, or "Clear drawn boxes"). Drawn regions are blacked/blurred/pixelated for the entire clip — on top of any auto-detected faces/weapons. Verified in-browser: a Block-style drawn box reads pure black in the exported frame while the rest of the frame is untouched.
