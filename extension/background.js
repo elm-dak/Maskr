@@ -15,6 +15,12 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Clicking the toolbar icon just opens the Maskr app. (The main feature is
+// right-clicking an image -> "Redact with Maskr".)
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: MASKR_URL });
+});
+
 // ArrayBuffer -> base64 data URL, chunked so we don't blow the call stack on
 // String.fromCharCode for large images.
 function toDataUrl(buffer, mime) {
