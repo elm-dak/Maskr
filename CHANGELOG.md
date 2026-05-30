@@ -6,10 +6,15 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
-## v0.10.1 — 2026-05-30
-### Fixed — face detection missing faces
-- Lowered MediaPipe `minDetectionConfidence` from 0.5 → 0.3 (both GPU and CPU detectors). The short-range BlazeFace model was silently dropping smaller, slightly-turned, or further-away faces.
-- **Find faces** now retries on the CPU delegate when the GPU delegate loads successfully but returns zero detections (a known issue on some drivers/browsers). Previously the CPU path only ran if GPU *creation* threw.
+## v0.10.2 — 2026-05-30
+### Fixed — face detection misses small / multiple faces
+- **Root cause** (verified in-browser with Playwright): BlazeFace downscales the whole frame to ~128 px internally, so any face that's a small fraction of a large photo — group shots, wide angles — vanishes. A single close-up face worked; "give it real photos" did not.
+- **Tiled multi-scale detection**: the detector now runs on the full image *and* an overlapping, upscaled grid of tiles (2×2 up to 4×4 by image size), then de-duplicates with IoU + containment NMS. Test: a 2400 px frame with four 300 px faces went from **1 detected → 5**; a single close-up still returns exactly **1** (no duplicate inflation).
+- **Automatic on upload**: faces are now detected in the background as soon as an image is dropped — no need to click "Find faces" first. The button still works as a manual re-scan / toggle.
+
+### Fixed — face detection missing faces (v0.10.1)
+- Lowered MediaPipe `minDetectionConfidence` from 0.5 → 0.3 (both GPU and CPU detectors).
+- **Find faces** now retries on the CPU delegate when the GPU delegate loads successfully but returns zero detections.
 
 ### Fixed — content safety model 404
 - The adult-content (NSFWJS) model loaded from `cdn.jsdelivr.net/npm/nsfwjs/quant_nsfw_mobilenet/`, a directory that nsfwjs 4.x removed from the npm package — it now returns **404 on every CDN**, so "Find adult content" always failed.

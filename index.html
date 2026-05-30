@@ -302,7 +302,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.1 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.2 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -911,6 +911,8 @@ async function imgStartProcessing(){
   imgWork.classList.add("active");imgDropZone.style.display="none";
   // Scroll work area into view so user doesn't have to hunt for it
   requestAnimationFrame(()=>imgWork.scrollIntoView({behavior:"smooth",block:"nearest"}));
+  // Auto-detect faces in the background (runs alongside OCR; user can toggle off).
+  scanFaces({auto:true}).catch(err=>console.warn("Maskr: auto face scan failed:",err?.message));
   const{canvas:ocrCanvas,scale}=preprocessForOcr(imgState.image);
   if(typeof Tesseract==="undefined"){imgShowError("OCR engine didn't load. Use Draw mode.");imgRenderTogglesAndCanvas();imgSetMode("draw");return;}
   let worker;
@@ -987,34 +989,81 @@ imgStyleSel.addEventListener("click",e=>{const opt=e.target.closest(".style-opt"
 fmtSelect.addEventListener("click",e=>{const opt=e.target.closest(".style-opt");if(!opt)return;fmtSelect.querySelectorAll(".style-opt").forEach(o=>o.classList.remove("active"));opt.classList.add("active");exportFormat=opt.dataset.fmt;qualityRow.style.display=exportFormat==="png"?"none":"flex";downloadBtn.textContent=`↓ Download ${exportFormat.toUpperCase()}`;});
 qualitySlider.addEventListener("input",()=>{exportQuality=qualitySlider.value/100;qualityVal.textContent=qualitySlider.value+"%";});
 
-findFacesBtn.addEventListener("click",async()=>{
+// Map MediaPipe detections (in tile-canvas coords) back to source-image pixels.
+function faceBoxesFromDetections(dets,offX,offY,sx,sy){
+  const out=[];
+  for(const det of(dets||[])){const box=det.boundingBox;if(!box)continue;
+    out.push({x:offX+box.originX*sx,y:offY+box.originY*sy,w:box.width*sx,h:box.height*sy,score:det.categories?.[0]?.score??0});}
+  return out;
+}
+function faceIntersect(a,b){const ix=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));const iy=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));return ix*iy;}
+function faceIou(a,b){const I=faceIntersect(a,b);return I?I/(a.w*a.h+b.w*b.h-I):0;}
+// True when b is mostly the same face as a (duplicate) OR mostly swallowed by a
+// (a partial face from a tile edge sitting inside a's full-face box).
+function faceDup(a,b){const I=faceIntersect(a,b);if(!I)return false;return faceIou(a,b)>0.35||I/Math.min(a.w*a.h,b.w*b.h)>0.55;}
+
+// Tiled multi-scale face detection.
+// BlazeFace shrinks the whole frame to ~128px internally, so a face that's a
+// small fraction of a large photo (group shots, wide angles) disappears. We run
+// the detector on the full image AND on an overlapping grid of upscaled tiles,
+// then NMS-dedupe — so small and multiple faces are caught.
+function detectFacesTiled(detector,img){
+  const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
+  const all=faceBoxesFromDetections(detector.detect(img)?.detections,0,0,1,1);
+  const maxDim=Math.max(W,H);
+  const cols=maxDim>1600?4:maxDim>900?3:maxDim>500?2:1;
+  if(cols>1){
+    const rows=cols,ov=0.2,tw=W/cols,th=H/rows,target=400;
+    const tmp=document.createElement("canvas"),tctx=tmp.getContext("2d");
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const x0=Math.max(0,c*tw-tw*ov),y0=Math.max(0,r*th-th*ov);
+      const x1=Math.min(W,(c+1)*tw+tw*ov),y1=Math.min(H,(r+1)*th+th*ov);
+      const sw=x1-x0,sh=y1-y0;if(sw<10||sh<10)continue;
+      const scale=Math.min(2,target/Math.max(sw,sh));
+      tmp.width=Math.max(1,Math.round(sw*scale));tmp.height=Math.max(1,Math.round(sh*scale));
+      tctx.clearRect(0,0,tmp.width,tmp.height);
+      tctx.drawImage(img,x0,y0,sw,sh,0,0,tmp.width,tmp.height);
+      all.push(...faceBoxesFromDetections(detector.detect(tmp)?.detections,x0,y0,sw/tmp.width,sh/tmp.height));
+    }
+  }
+  // Keep larger (more complete) boxes first so partial tile-edge faces fold into them.
+  all.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+  const keep=[];for(const b of all){if(keep.some(k=>faceDup(k,b)))continue;keep.push(b);}
+  return keep;
+}
+
+// Shared by the button and the automatic scan on upload. `auto` suppresses
+// error popups / status changes so a background scan stays quiet.
+async function scanFaces({auto=false}={}){
   if(!imgState.image)return;
-  if(facesScanned){const has=imgState.detections.some(d=>d.subtype==="face");if(!has){imgShowError("No faces found.");return;}imgState.enabled.face=!imgState.enabled.face;imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});imgRenderTogglesAndCanvas();imgSaveHist();return;}
-  findFacesBtn.classList.add("working");findFacesBtn.textContent="Loading face model…";
+  if(facesScanned){const has=imgState.detections.some(d=>d.subtype==="face");if(!has){if(!auto)imgShowError("No faces found.");return;}imgState.enabled.face=!imgState.enabled.face;imgState.detections.forEach(d=>{if(d.subtype==="face")d.on=imgState.enabled.face;});imgRenderTogglesAndCanvas();imgSaveHist();return;}
+  if(findFacesBtn.classList.contains("working"))return; // a scan is already running
+  findFacesBtn.classList.add("working");findFacesBtn.textContent=auto?"Detecting faces…":"Loading face model…";
   try{
     if(!faceDetector){
       console.log("Maskr: Face detector loading (GPU)…");
       try{ faceDetector=await window.__loadFaceDetector(); console.log("Maskr: Face detector ready (GPU)"); }
       catch(gpuErr){ console.warn("Maskr: GPU delegate failed, retrying with CPU:",gpuErr.message); faceDetector=await window.__loadFaceDetectorCPU(); console.log("Maskr: Face detector ready (CPU fallback)"); }
     }
-    findFacesBtn.textContent="Scanning faces…";
-    console.log("Maskr: Face detection start");
-    let dets=faceDetector.detect(imgState.image)?.detections||[];
+    if(!auto)findFacesBtn.textContent="Scanning faces…";
+    console.log("Maskr: Face detection start (tiled)");
+    let dets=detectFacesTiled(faceDetector,imgState.image);
     // GPU delegate can load yet return nothing on some drivers — retry on CPU.
     if(dets.length===0){
       console.warn("Maskr: GPU face pass found 0 — retrying on CPU delegate");
-      try{ if(!faceDetectorCPU)faceDetectorCPU=await window.__loadFaceDetectorCPU(); dets=faceDetectorCPU.detect(imgState.image)?.detections||[]; }
+      try{ if(!faceDetectorCPU)faceDetectorCPU=await window.__loadFaceDetectorCPU(); dets=detectFacesTiled(faceDetectorCPU,imgState.image); }
       catch(cpuErr){ console.warn("Maskr: CPU face retry failed:",cpuErr?.message); }
     }
     let added=0;
-    for(const det of dets){const box=det.boundingBox;if(!box)continue;const{originX:x,originY:y,width:w,height:h}=box;const px=w*.15,py=h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});added++;}
+    for(const f of dets){const px=f.w*.15,py=f.h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,f.x-px),y:Math.max(0,f.y-py),w:f.w+px*2,h:f.h+py*2,on:true});added++;}
     facesScanned=true;imgState.enabled.face=added>0;
-    console.log(`Maskr: Face detection found ${added} faces — state now:`,imgState.detections.filter(d=>d.subtype==="face").length,"face entries");
-    if(added===0)imgShowError("No faces found.");else{imgHideStatus();imgSaveHist();}
+    console.log(`Maskr: Face detection found ${added} faces`);
+    if(added===0){if(!auto)imgShowError("No faces found.");}else{if(!auto)imgHideStatus();imgSaveHist();}
     imgRenderTogglesAndCanvas();
-  }catch(err){console.error(err);imgShowError("Couldn't load face detector.");}
+  }catch(err){console.error(err);if(!auto)imgShowError("Couldn't load face detector.");}
   finally{findFacesBtn.classList.remove("working");findFacesBtn.textContent=(facesScanned&&imgState.detections.some(d=>d.subtype==="face"))?"Toggle faces":"⊕ Find faces";}
-});
+}
+findFacesBtn.addEventListener("click",()=>scanFaces());
 
 findNamesBtn.addEventListener("click",async()=>{
   if(!imgState.image)return;
