@@ -89,3 +89,13 @@ for (const s of [32, 180, 192, 512]) {
   fs.writeFileSync(name, png(s));
   console.log("wrote", name);
 }
+
+// Browser-extension icons (Chrome wants 16/48/128).
+if (fs.existsSync("extension")) {
+  if (!fs.existsSync("extension/icons")) fs.mkdirSync("extension/icons");
+  for (const s of [16, 48, 128]) {
+    const name = `extension/icons/icon-${s}.png`;
+    fs.writeFileSync(name, png(s));
+    console.log("wrote", name);
+  }
+}
