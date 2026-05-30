@@ -1068,11 +1068,27 @@ imgStyleSel.addEventListener("click",e=>{const opt=e.target.closest(".style-opt"
 fmtSelect.addEventListener("click",e=>{const opt=e.target.closest(".style-opt");if(!opt)return;fmtSelect.querySelectorAll(".style-opt").forEach(o=>o.classList.remove("active"));opt.classList.add("active");exportFormat=opt.dataset.fmt;qualityRow.style.display=exportFormat==="png"?"none":"flex";downloadBtn.textContent=`↓ Download ${exportFormat.toUpperCase()}`;});
 qualitySlider.addEventListener("input",()=>{exportQuality=qualitySlider.value/100;qualityVal.textContent=qualitySlider.value+"%";});
 
+// Confidence gates. The model runs at a low floor (0.3) so it *surfaces* weak
+// candidates — real small faces become large and high-confidence once a tile is
+// upscaled, so they clear these gates easily. Texture/pattern false positives
+// score low, so we drop them here. Tiles are upscaled (where most phantom faces
+// come from), so they're gated harder than the full-image pass.
+const FACE_MIN_SCORE      = 0.55; // full-image detections
+const FACE_TILE_MIN_SCORE = 0.65; // upscaled-tile detections (stricter)
+
 // Map MediaPipe detections (in tile-canvas coords) back to source-image pixels.
-function faceBoxesFromDetections(dets,offX,offY,sx,sy){
+// Drops anything below `minScore` and any box whose shape isn't face-like
+// (BlazeFace boxes are ~square; long thin boxes are almost always junk).
+function faceBoxesFromDetections(dets,offX,offY,sx,sy,minScore=0){
   const out=[];
   for(const det of(dets||[])){const box=det.boundingBox;if(!box)continue;
-    out.push({x:offX+box.originX*sx,y:offY+box.originY*sy,w:box.width*sx,h:box.height*sy,score:det.categories?.[0]?.score??0});}
+    const score=det.categories?.[0]?.score??0;
+    if(score<minScore)continue;
+    const w=box.width*sx,h=box.height*sy;
+    if(w<=0||h<=0)continue;
+    const ar=w/h;
+    if(ar<0.45||ar>2.2)continue; // not face-shaped
+    out.push({x:offX+box.originX*sx,y:offY+box.originY*sy,w,h,score});}
   return out;
 }
 function faceIntersect(a,b){const ix=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));const iy=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));return ix*iy;}
@@ -1088,7 +1104,7 @@ function faceDup(a,b){const I=faceIntersect(a,b);if(!I)return false;return faceI
 // then NMS-dedupe — so small and multiple faces are caught.
 function detectFacesTiled(detector,img,{maxCols=4}={}){
   const W=img.naturalWidth||img.videoWidth||img.width,H=img.naturalHeight||img.videoHeight||img.height;
-  const all=faceBoxesFromDetections(detector.detect(img)?.detections,0,0,1,1);
+  const all=faceBoxesFromDetections(detector.detect(img)?.detections,0,0,1,1,FACE_MIN_SCORE);
   const maxDim=Math.max(W,H);
   const cols=Math.min(maxCols,maxDim>1600?4:maxDim>900?3:maxDim>500?2:1);
   if(cols>1){
@@ -1102,7 +1118,7 @@ function detectFacesTiled(detector,img,{maxCols=4}={}){
       tmp.width=Math.max(1,Math.round(sw*scale));tmp.height=Math.max(1,Math.round(sh*scale));
       tctx.clearRect(0,0,tmp.width,tmp.height);
       tctx.drawImage(img,x0,y0,sw,sh,0,0,tmp.width,tmp.height);
-      all.push(...faceBoxesFromDetections(detector.detect(tmp)?.detections,x0,y0,sw/tmp.width,sh/tmp.height));
+      all.push(...faceBoxesFromDetections(detector.detect(tmp)?.detections,x0,y0,sw/tmp.width,sh/tmp.height,FACE_TILE_MIN_SCORE));
     }
   }
   // Keep larger (more complete) boxes first so partial tile-edge faces fold into them.
