@@ -128,19 +128,22 @@
     return { v, resolver };
   }
 
+  // minDetectionConfidence lowered to 0.3 — the short-range BlazeFace model
+  // otherwise misses smaller / slightly-turned / further-away faces.
   window.__loadFaceDetector = async function () {
     const { v, resolver } = await _mpVision();
     return v.FaceDetector.createFromOptions(resolver, {
       baseOptions: { modelAssetPath: FACE_MODEL, delegate: "GPU" },
-      runningMode: "IMAGE", minDetectionConfidence: 0.5
+      runningMode: "IMAGE", minDetectionConfidence: 0.3
     });
   };
-  // CPU fallback — used when GPU delegate fails (WebGL not available)
+  // CPU fallback — used when GPU delegate fails (WebGL not available) or when
+  // the GPU delegate loads but returns no detections (some drivers/browsers).
   window.__loadFaceDetectorCPU = async function () {
     const { v, resolver } = await _mpVision();
     return v.FaceDetector.createFromOptions(resolver, {
       baseOptions: { modelAssetPath: FACE_MODEL, delegate: "CPU" },
-      runningMode: "IMAGE", minDetectionConfidence: 0.5
+      runningMode: "IMAGE", minDetectionConfidence: 0.3
     });
   };
   // Object Detector (EfficientDet Lite) — for weapon detection (COCO classes)
@@ -299,7 +302,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.1 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -823,7 +826,7 @@ document.getElementById("tabVideo").addEventListener("click",()=>switchTool("vid
 const imgState={image:null,detections:[],style:"block",enabled:{},mode:"auto",drawing:false,drawStart:null};
 const imgHist=[]; let imgHistPos=-1;
 let lastOcrWords=[],lastOcrScale=1;
-let facesScanned=false,   faceDetector=null,   nlpLib=null;
+let facesScanned=false,   faceDetector=null,   faceDetectorCPU=null,   nlpLib=null;
 let namesScanned=false;
 let weaponsScanned=false, objectDetector=null;
 let nudityScanned=false,  nsfwModel=null,       tfReady=false;
@@ -996,8 +999,15 @@ findFacesBtn.addEventListener("click",async()=>{
     }
     findFacesBtn.textContent="Scanning faces…";
     console.log("Maskr: Face detection start");
-    const result=faceDetector.detect(imgState.image);let added=0;
-    for(const det of(result?.detections||[])){const box=det.boundingBox;if(!box)continue;const{originX:x,originY:y,width:w,height:h}=box;const px=w*.15,py=h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});added++;}
+    let dets=faceDetector.detect(imgState.image)?.detections||[];
+    // GPU delegate can load yet return nothing on some drivers — retry on CPU.
+    if(dets.length===0){
+      console.warn("Maskr: GPU face pass found 0 — retrying on CPU delegate");
+      try{ if(!faceDetectorCPU)faceDetectorCPU=await window.__loadFaceDetectorCPU(); dets=faceDetectorCPU.detect(imgState.image)?.detections||[]; }
+      catch(cpuErr){ console.warn("Maskr: CPU face retry failed:",cpuErr?.message); }
+    }
+    let added=0;
+    for(const det of dets){const box=det.boundingBox;if(!box)continue;const{originX:x,originY:y,width:w,height:h}=box;const px=w*.15,py=h*.2;imgState.detections.push({type:"auto",subtype:"face",text:"",x:Math.max(0,x-px),y:Math.max(0,y-py),w:w+px*2,h:h+py*2,on:true});added++;}
     facesScanned=true;imgState.enabled.face=added>0;
     console.log(`Maskr: Face detection found ${added} faces — state now:`,imgState.detections.filter(d=>d.subtype==="face").length,"face entries");
     if(added===0)imgShowError("No faces found.");else{imgHideStatus();imgSaveHist();}
@@ -1095,10 +1105,20 @@ findAdultBtn.addEventListener("click",async()=>{
     }
     if(!nsfwModel){
       findAdultBtn.textContent="Loading content safety model (~5 MB)…";
-      // No version pin — nsfwjs@4.1.0 does not exist; let unpkg resolve latest
       await loadLib(["https://unpkg.com/nsfwjs/dist/nsfwjs.min.js","https://cdn.jsdelivr.net/npm/nsfwjs/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_latest");
-      // Model is bundled inside the nsfwjs npm package — jsDelivr serves it with correct CORS headers
-      nsfwModel=await nsfwjs.load("https://cdn.jsdelivr.net/npm/nsfwjs/quant_nsfw_mobilenet/");
+      // nsfwjs 4.x dropped the bundled `quant_nsfw_mobilenet/` dir from the npm
+      // package (the old URL now 404s everywhere). Load the MobileNetV2 weights
+      // straight from the repo instead — load() appends model.json to the dir.
+      const NSFW_MODEL_URLS=[
+        "https://cdn.jsdelivr.net/gh/infinitered/nsfwjs@4.3.0/models/mobilenet_v2/",
+        "https://cdn.jsdelivr.net/gh/infinitered/nsfwjs@master/models/mobilenet_v2/"
+      ];
+      let nsfwErr;
+      for(const u of NSFW_MODEL_URLS){
+        try{ nsfwModel=await nsfwjs.load(u); break; }
+        catch(e){ nsfwErr=e; console.warn("Maskr: NSFW model load failed from",u,"—",e?.message); }
+      }
+      if(!nsfwModel) throw nsfwErr||new Error("NSFW model unavailable");
     }
     findAdultBtn.textContent="Analysing content…";
     console.log("Maskr: NSFWJS classification start, threshold",confidenceThreshold);
@@ -1382,6 +1402,19 @@ function vidUpdateTracks(newDets, frameNum) {
 }
 let vidTrackId = 0;
 
+// Seek a video to time `t` and resolve once the frame is ready.
+// Guards against the seeked event never firing (e.g. seeking to the current
+// time, or a coalesced seek) with a safety timeout, so the loop can't hang.
+function vidSeek(video, t) {
+  return new Promise(resolve => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; clearTimeout(tm); video.removeEventListener("seeked", fin); resolve(); };
+    const tm = setTimeout(fin, 300);
+    video.addEventListener("seeked", fin);
+    try { video.currentTime = Math.min(t, video.duration || t); } catch (_) { fin(); }
+  });
+}
+
 vidStyleSel.addEventListener("click", e => {
   const opt = e.target.closest(".style-opt"); if (!opt) return;
   vidStyleSel.querySelectorAll(".style-opt").forEach(o => o.classList.remove("active"));
@@ -1462,8 +1495,16 @@ async function runVideoRedaction(file) {
     .find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
   console.log("Maskr Video: MediaRecorder using", mime);
 
-  const stream = outC.captureStream(30);
-  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+  // Drive the recorder frame-by-frame with requestFrame() so every processed
+  // frame lands in the output exactly once. captureStream(30) samples on a
+  // wall-clock timer instead, which drops frames (and redactions) when a frame
+  // takes longer than 33 ms to process. Fall back to timed capture if the
+  // browser doesn't support requestFrame().
+  const stream  = outC.captureStream(0);
+  const vTrack  = stream.getVideoTracks()[0];
+  const useReqFrame = typeof vTrack.requestFrame === "function";
+  const recStream = useReqFrame ? stream : outC.captureStream(30);
+  const recorder = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
   const chunks = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
   recorder.start(200); // 200ms chunks
@@ -1479,9 +1520,8 @@ async function runVideoRedaction(file) {
   for (let t = 0; t <= duration; t += 1 / FPS_OUT) {
     if (!vidProcessing) break; // cancelled
 
-    // Seek to frame
-    video.currentTime = t;
-    await new Promise(res => { video.onseeked = res; });
+    // Seek to frame (safe against the seeked event never firing)
+    await vidSeek(video, t);
 
     // Run detectors every N frames, feed results into the tracker
     if (frameNum % vidDetectN === 0) {
@@ -1514,6 +1554,9 @@ async function runVideoRedaction(file) {
     for (const t_ of vidTracks) {
       applyRedactionToCtx(outCtx, outC, t_.x, t_.y, t_.w, t_.h, vidStyle);
     }
+
+    // Push this exact frame into the recorded stream
+    if (useReqFrame) vTrack.requestFrame();
 
     // Mirror to preview
     prevCtx.drawImage(outC, 0, 0, vidPreview.width, vidPreview.height);

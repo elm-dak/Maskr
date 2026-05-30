@@ -6,8 +6,21 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
-## v0.10 — 2026-05-29
-### Added — Video Redactor (new tab)
+## v0.10.1 — 2026-05-30
+### Fixed — face detection missing faces
+- Lowered MediaPipe `minDetectionConfidence` from 0.5 → 0.3 (both GPU and CPU detectors). The short-range BlazeFace model was silently dropping smaller, slightly-turned, or further-away faces.
+- **Find faces** now retries on the CPU delegate when the GPU delegate loads successfully but returns zero detections (a known issue on some drivers/browsers). Previously the CPU path only ran if GPU *creation* threw.
+
+### Fixed — content safety model 404
+- The adult-content (NSFWJS) model loaded from `cdn.jsdelivr.net/npm/nsfwjs/quant_nsfw_mobilenet/`, a directory that nsfwjs 4.x removed from the npm package — it now returns **404 on every CDN**, so "Find adult content" always failed.
+- Now loads the MobileNetV2 weights from the repo (`cdn.jsdelivr.net/gh/infinitered/nsfwjs@4.3.0/models/mobilenet_v2/`, with an `@master` fallback). `nsfwjs.load()` appends `model.json` and uses `loadLayersModel` — verified reachable incl. the `group1-shard1of1` weight bundle.
+
+### Fixed/Improved — Video redactor
+- **Seek can no longer hang.** Replaced the bare `video.onseeked` await with a helper that has a 300 ms safety timeout — the old code would stall forever when a seek (notably the first frame at t=0) coalesced and never fired the `seeked` event.
+- **No more dropped frames/redactions.** Switched from `captureStream(30)` (wall-clock sampling that drops frames whenever one takes >33 ms to process) to `captureStream(0)` + `requestFrame()`, pushing each processed frame into the recording exactly once. Falls back to timed capture on browsers without `requestFrame()`.
+- Face detection in video benefits from the same 0.3 confidence threshold above.
+
+
 - Drop MP4 / WebM / MOV → Maskr processes every frame, applies face and/or weapon redaction, outputs a downloadable redacted WebM file — 100% in-browser, nothing uploaded.
 - Uses same MediaPipe FaceDetector + ObjectDetector already loaded for image detection — no extra model download if they're already warm.
 - Configurable detection rate slider (detect every N frames, default 5 = balance of speed vs accuracy).
