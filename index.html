@@ -615,15 +615,46 @@ async function loadLib(urls, globalName, cacheKey) {
   throw new Error("All CDN sources failed for " + (cacheKey || globalName));
 }
 
+// Never cache big bundles in localStorage: a ~1.5 MB string re-injected as an
+// inline <script> doubles memory and can blow the storage quota — a real cause
+// of tab crashes on low-memory phones. Only small libs are worth caching.
+const MAX_CACHE_BYTES = 600000;
 function backgroundRefreshLib(url, cacheKey) {
   fetch(url).then(r => r.text()).then(code => {
+    if (!code || code.length > MAX_CACHE_BYTES) return;
     try { localStorage.setItem("maskr_lib_" + cacheKey, JSON.stringify({ code, ts: Date.now() })); } catch(_) {}
   }).catch(() => {});
 }
 function cacheLibInBackground(url, cacheKey) {
   fetch(url).then(r => r.text()).then(code => {
+    if (!code || code.length > MAX_CACHE_BYTES) return;
     try { localStorage.setItem("maskr_lib_" + cacheKey, JSON.stringify({ code, ts: Date.now() })); } catch(_) {}
   }).catch(() => {});
+}
+
+// Heuristic for "this device probably can't hold TensorFlow.js + a model in RAM
+// without crashing the tab". Conservative on purpose: we'd rather warn an
+// occasional capable phone than hand a low-end one a dead "can't open this page".
+let _lowMemCache;
+function isLowMemoryDevice() {
+  if (_lowMemCache !== undefined) return _lowMemCache;
+  let low = false;
+  try {
+    // navigator.deviceMemory is in GB, rounded down, capped at 8 (Chrome/Android).
+    const mem = navigator.deviceMemory;
+    if (typeof mem === "number" && mem > 0 && mem <= 4) low = true;
+    // Few logical cores is a decent proxy on browsers without deviceMemory (Safari).
+    const cores = navigator.hardwareConcurrency;
+    if (typeof cores === "number" && cores > 0 && cores <= 4) low = true;
+    // iPhones/iPads don't expose deviceMemory at all; treat mobile as cautious.
+    const ua = navigator.userAgent || "";
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+    // A capable desktop (lots of cores, real deviceMemory) overrides the guess.
+    if (!isMobile && typeof mem === "number" && mem > 4) low = false;
+    if (!isMobile && typeof cores === "number" && cores > 4 && mem === undefined) low = false;
+  } catch(_) {}
+  _lowMemCache = low;
+  return low;
 }
 
 /* ─── Library state dots ─── */
@@ -1172,16 +1203,25 @@ findAdultBtn.addEventListener("click",async()=>{
     imgState.detections.forEach(d=>{if(d.subtype==="adult")d.on=imgState.enabled.adult;});
     imgRenderTogglesAndCanvas();imgSaveHist();return;
   }
+  // This is the heaviest feature (TensorFlow.js + a ~14 MB model in memory).
+  // On low-memory phones it can crash the tab outright, so warn first and let
+  // the user back out instead of getting a dead "can't open this page" screen.
+  if(!tfReady && isLowMemoryDevice() &&
+     !confirm("Adult-content scanning loads a large AI model (~20 MB) and runs entirely on your device. On phones with little memory this can crash the page.\n\nContinue anyway? (Block/Draw redaction still works without it.)")){
+    findAdultBtn.disabled=false;findAdultBtn.classList.remove("working");findAdultBtn.textContent="⊕ Find adult content";return;
+  }
   findAdultBtn.disabled=true;findAdultBtn.classList.add("working");
   try{
     if(!tfReady){
       findAdultBtn.textContent="Loading TensorFlow.js…";
-      await loadLib(["https://unpkg.com/@tensorflow/tfjs/dist/tf.min.js","https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"],"tf","tfjs_latest");
+      // cacheKey null — far too large to keep in localStorage (see MAX_CACHE_BYTES).
+      await loadLib(["https://unpkg.com/@tensorflow/tfjs/dist/tf.min.js","https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"],"tf",null);
+      try{ window.tf&&tf.enableProdMode&&tf.enableProdMode(); }catch(_){}
       tfReady=true;
     }
     if(!nsfwModel){
       findAdultBtn.textContent="Loading content safety model (~5 MB)…";
-      await loadLib(["https://unpkg.com/nsfwjs/dist/nsfwjs.min.js","https://cdn.jsdelivr.net/npm/nsfwjs/dist/nsfwjs.min.js"],"nsfwjs","nsfwjs_latest");
+      await loadLib(["https://unpkg.com/nsfwjs/dist/nsfwjs.min.js","https://cdn.jsdelivr.net/npm/nsfwjs/dist/nsfwjs.min.js"],"nsfwjs",null);
       // nsfwjs 4.x dropped the bundled `quant_nsfw_mobilenet/` dir from the npm
       // package (the old URL now 404s everywhere). Load the MobileNetV2 weights
       // straight from the repo instead — load() appends model.json to the dir.
