@@ -6,6 +6,16 @@ Versioning: MAJOR.MINOR.PATCH — patch = bug fix, minor = new feature, major = 
 
 ---
 
+## v0.10.3 — 2026-05-30
+### Added — Video: draw your own redaction boxes
+- The first frame now shows as soon as you drop a video. **Drag on it to add a fixed redaction box** (right-click a box to remove, or "Clear drawn boxes"). Drawn regions are blacked/blurred/pixelated for the entire clip — on top of any auto-detected faces/weapons. Verified in-browser: a Block-style drawn box reads pure black in the exported frame while the rest of the frame is untouched.
+
+### Improved — Video: catch more faces
+- Video face detection now uses the same **tiled multi-scale** pass as the image tool (2×2 cap for per-frame speed), so smaller / multiple faces are picked up frame-by-frame and handed to the existing motion tracker (redactions still follow faces as they move). Confirmed on a moving-face test clip.
+
+### Note
+- "Blood / gore" detection was requested but isn't shipped: there's no reliable in-browser model for it (NSFWJS only classifies adult content, COCO/EfficientDet has no blood class). Rather than add a button that never fires, the drawn-box tool covers arbitrary regions including these.
+
 ## v0.10.2 — 2026-05-30
 ### Fixed — face detection misses small / multiple faces
 - **Root cause** (verified in-browser with Playwright): BlazeFace downscales the whole frame to ~128 px internally, so any face that's a small fraction of a large photo — group shots, wide angles — vanishes. A single close-up face worked; "give it real photos" did not.

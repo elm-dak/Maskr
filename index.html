@@ -285,6 +285,8 @@
   .vid-progress-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
   .vid-option-row{display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer;user-select:none}
   .vid-option-row input[type=checkbox]{accent-color:var(--ink);width:15px;height:15px;cursor:pointer}
+  .vid-draw-hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:center;margin-top:2px;display:none}
+  .vid-draw-hint.show{display:block}
   @media(max-width:860px){.vid-grid{grid-template-columns:1fr}}
   /* How steps */
   .how{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -302,7 +304,7 @@
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.2 · privacy toolkit</small></div></div>
+  <div class="brand"><div class="logo-mark"></div><div><h1>Maskr</h1><small>v0.10.3 · privacy toolkit</small></div></div>
   <div class="top-meta"><span class="dot"></span> 100% in your browser</div>
 </header>
 
@@ -496,6 +498,7 @@
     <div class="vid-preview-box">
       <div class="vid-empty" id="vidEmpty">Processing preview<br/>will appear here</div>
       <canvas id="vidPreview"></canvas>
+      <div class="vid-draw-hint" id="vidDrawHint">✏ Drag on the frame to add a redaction box · right-click a box to remove it</div>
       <div class="vid-progress-wrap" id="vidProgressWrap">
         <div class="vid-progress-label" id="vidProgressLabel">Starting…</div>
         <div class="vid-progress-bar"><div id="vidProgressBar"></div></div>
@@ -507,7 +510,8 @@
       <h3>What to redact</h3>
       <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
         <label class="vid-option-row"><input type="checkbox" id="vBlurFaces" checked /> Faces <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">BlazeFace</span></label>
-        <label class="vid-option-row"><input type="checkbox" id="vBlurWeapons" /> Weapons <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">EfficientDet</span></label>
+        <label class="vid-option-row"><input type="checkbox" id="vBlurWeapons" /> Weapons / objects <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">EfficientDet</span></label>
+        <button class="btn wide" id="vidClearBoxesBtn" style="margin-top:4px">⌫ Clear drawn boxes</button>
       </div>
 
       <h3 style="margin-top:4px">Redaction style</h3>
@@ -1007,11 +1011,11 @@ function faceDup(a,b){const I=faceIntersect(a,b);if(!I)return false;return faceI
 // small fraction of a large photo (group shots, wide angles) disappears. We run
 // the detector on the full image AND on an overlapping grid of upscaled tiles,
 // then NMS-dedupe — so small and multiple faces are caught.
-function detectFacesTiled(detector,img){
-  const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
+function detectFacesTiled(detector,img,{maxCols=4}={}){
+  const W=img.naturalWidth||img.videoWidth||img.width,H=img.naturalHeight||img.videoHeight||img.height;
   const all=faceBoxesFromDetections(detector.detect(img)?.detections,0,0,1,1);
   const maxDim=Math.max(W,H);
-  const cols=maxDim>1600?4:maxDim>900?3:maxDim>500?2:1;
+  const cols=Math.min(maxCols,maxDim>1600?4:maxDim>900?3:maxDim>500?2:1);
   if(cols>1){
     const rows=cols,ov=0.2,tw=W/cols,th=H/rows,target=400;
     const tmp=document.createElement("canvas"),tctx=tmp.getContext("2d");
@@ -1394,6 +1398,86 @@ let vidDetectN = 5;
 let vidResultBlob = null;
 let vidProcessing = false;
 
+/* ── Manual region boxes (drawn on the preview, redacted for the whole clip) ── */
+let vidManualBoxes = [];        // { x,y,w,h } in source-video pixel coords
+let vidSrcW = 0, vidSrcH = 0;   // source video dimensions
+let vidFirstFrame = null;       // <video> kept at frame 0 for the still preview
+let vidPrevCtx = null;
+let vidDrawing = false, vidDrawStart = null;
+
+// Map a pointer event on the preview canvas to preview-pixel coords.
+function vidPrevCoords(e){
+  const r = vidPreview.getBoundingClientRect();
+  const sx = vidPreview.width / r.width, sy = vidPreview.height / r.height;
+  const pt = e.touches ? e.touches[0] : e;
+  return { x: (pt.clientX - r.left) * sx, y: (pt.clientY - r.top) * sy };
+}
+// Redraw the still first frame + any manual boxes (used before processing).
+function vidRedrawPreview(){
+  if (!vidPrevCtx || !vidFirstFrame) return;
+  const pw = vidPreview.width, ph = vidPreview.height;
+  vidPrevCtx.drawImage(vidFirstFrame, 0, 0, pw, ph);
+  const sx = pw / vidSrcW, sy = ph / vidSrcH;
+  for (const b of vidManualBoxes){
+    vidPrevCtx.fillStyle = "rgba(255,77,46,.18)";
+    vidPrevCtx.fillRect(b.x*sx, b.y*sy, b.w*sx, b.h*sy);
+    vidPrevCtx.strokeStyle = "#ff4d2e"; vidPrevCtx.lineWidth = 2;
+    vidPrevCtx.strokeRect(b.x*sx, b.y*sy, b.w*sx, b.h*sy);
+  }
+}
+// Show frame 0 in the preview so the user can draw redaction boxes before processing.
+async function vidShowFirstFrame(file){
+  const v = document.createElement("video");
+  v.src = URL.createObjectURL(file); v.muted = true; v.playsInline = true;
+  try { await new Promise((res,rej)=>{ v.onloadeddata = res; v.onerror = rej; }); }
+  catch { return; }
+  await vidSeek(v, 0);
+  vidSrcW = v.videoWidth; vidSrcH = v.videoHeight;
+  const scale = Math.min(1, 640 / Math.max(vidSrcW, vidSrcH));
+  vidPreview.width  = Math.round(vidSrcW * scale);
+  vidPreview.height = Math.round(vidSrcH * scale);
+  vidPreview.style.display = "block"; vidEmpty.style.display = "none";
+  vidPreview.style.cursor = "crosshair";
+  document.getElementById("vidDrawHint")?.classList.add("show");
+  vidPrevCtx = vidPreview.getContext("2d");
+  vidFirstFrame = v;
+  vidRedrawPreview();
+}
+function vidStartDraw(e){ if (vidProcessing || !vidFirstFrame) return; e.preventDefault(); vidDrawing = true; vidDrawStart = vidPrevCoords(e); }
+function vidMoveDraw(e){
+  if (!vidDrawing) return; e.preventDefault();
+  const c = vidPrevCoords(e); vidRedrawPreview();
+  vidPrevCtx.strokeStyle = "#ff4d2e"; vidPrevCtx.lineWidth = 2; vidPrevCtx.setLineDash([6,4]);
+  vidPrevCtx.strokeRect(Math.min(vidDrawStart.x,c.x), Math.min(vidDrawStart.y,c.y), Math.abs(c.x-vidDrawStart.x), Math.abs(c.y-vidDrawStart.y));
+  vidPrevCtx.setLineDash([]);
+}
+function vidEndDraw(e){
+  if (!vidDrawing) return; vidDrawing = false;
+  const c = vidPrevCoords(e.changedTouches ? { touches: e.changedTouches } : e);
+  const pw = vidPreview.width, ph = vidPreview.height;
+  const rx = vidSrcW / pw, ry = vidSrcH / ph; // preview px → source px
+  const x = Math.min(vidDrawStart.x, c.x) * rx, y = Math.min(vidDrawStart.y, c.y) * ry;
+  const w = Math.abs(c.x - vidDrawStart.x) * rx, h = Math.abs(c.y - vidDrawStart.y) * ry;
+  if (w > 6*rx && h > 6*ry) { vidManualBoxes.push({ x, y, w, h }); }
+  vidRedrawPreview();
+}
+vidPreview.addEventListener("mousedown", vidStartDraw);
+vidPreview.addEventListener("touchstart", vidStartDraw, { passive:false });
+window.addEventListener("mousemove", vidMoveDraw);
+vidPreview.addEventListener("touchmove", vidMoveDraw, { passive:false });
+window.addEventListener("mouseup", vidEndDraw);
+window.addEventListener("touchend", vidEndDraw);
+// Right-click a manual box to remove it.
+vidPreview.addEventListener("contextmenu", e => {
+  e.preventDefault(); if (vidProcessing || !vidFirstFrame) return;
+  const c = vidPrevCoords(e); const rx = vidSrcW / vidPreview.width, ry = vidSrcH / vidPreview.height;
+  const sx = c.x * rx, sy = c.y * ry;
+  for (let i = vidManualBoxes.length - 1; i >= 0; i--) {
+    const b = vidManualBoxes[i];
+    if (sx >= b.x && sx <= b.x+b.w && sy >= b.y && sy <= b.y+b.h) { vidManualBoxes.splice(i,1); vidRedrawPreview(); return; }
+  }
+});
+
 /* ── IoU tracker — keeps redactions alive between detection cycles ── */
 const VID_PERSIST  = 25;   // frames to keep a box after last detection
 const VID_MATCH    = 0.20; // min IoU to link a new detection to an existing track
@@ -1489,6 +1573,9 @@ function vidLoadFile(file) {
   // Store file reference on button for retrieval
   vidProcessBtn._file = file;
   vidDownloadBtn.disabled = true; vidResultBlob = null;
+  vidManualBoxes = [];
+  // Show frame 0 so the user can draw fixed redaction boxes before processing.
+  vidShowFirstFrame(file).catch(()=>{});
 }
 
 vidProcessBtn.addEventListener("click", async () => {
@@ -1500,6 +1587,8 @@ vidProcessBtn.addEventListener("click", async () => {
 
 async function runVideoRedaction(file) {
   vidProcessing = true;
+  vidPreview.style.cursor = "default";
+  document.getElementById("vidDrawHint")?.classList.remove("show");
   vidProcessBtn.disabled = true;
   vidCancelBtn.style.display = "block";
   vidDownloadBtn.disabled = true;
@@ -1577,10 +1666,11 @@ async function runVideoRedaction(file) {
       const newDets = [];
       if (vBlurFaces.checked && faceDetector) {
         try {
-          for (const det of (faceDetector.detect(video)?.detections || [])) {
-            const { originX: x, originY: y, width: w, height: h } = det.boundingBox;
-            const px = w * 0.15, py = h * 0.2;
-            newDets.push({ x: Math.max(0,x-px), y: Math.max(0,y-py), w: w+px*2, h: h+py*2 });
+          // Tiled detection (2×2 cap) so smaller / multiple faces are caught,
+          // without the cost of a full grid on every detection frame.
+          for (const f of detectFacesTiled(faceDetector, video, { maxCols: 2 })) {
+            const px = f.w * 0.15, py = f.h * 0.2;
+            newDets.push({ x: Math.max(0,f.x-px), y: Math.max(0,f.y-py), w: f.w+px*2, h: f.h+py*2 });
           }
         } catch(_) {}
       }
@@ -1602,6 +1692,10 @@ async function runVideoRedaction(file) {
     outCtx.drawImage(video, 0, 0, vw, vh);
     for (const t_ of vidTracks) {
       applyRedactionToCtx(outCtx, outC, t_.x, t_.y, t_.w, t_.h, vidStyle);
+    }
+    // Manual boxes the user drew — fixed regions redacted for the whole clip
+    for (const b of vidManualBoxes) {
+      applyRedactionToCtx(outCtx, outC, b.x, b.y, b.w, b.h, vidStyle);
     }
 
     // Push this exact frame into the recorded stream
@@ -1657,9 +1751,18 @@ vidResetBtn.addEventListener("click", () => {
   vidDropZone.style.display = "block";
   vidFileInput.value = "";
   vidPreview.style.display = "none";
+  vidPreview.style.cursor = "default";
   vidEmpty.style.display = "";
   vidProgressWrap.classList.remove("show");
   vidProgressBar.style.width = "0%";
+  vidManualBoxes = [];
+  document.getElementById("vidDrawHint")?.classList.remove("show");
+  if (vidFirstFrame) { try { URL.revokeObjectURL(vidFirstFrame.src); } catch(_){} }
+  vidFirstFrame = null; vidPrevCtx = null;
+});
+// "Clear boxes" button — wipe just the manually drawn regions.
+document.getElementById("vidClearBoxesBtn")?.addEventListener("click", () => {
+  vidManualBoxes = []; vidRedrawPreview();
 });
 
 /* ═══ QR TOOL ═══ */
