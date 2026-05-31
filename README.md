@@ -2,6 +2,8 @@
 
 **Redact screenshots in seconds. 100% in your browser. Nothing ever leaves your device.**
 
+![Maskr — redact screenshots and photos privately, plus a browser extension](Maskr.png)
+
 Drop a screenshot, let Maskr find the sensitive data, download the clean version. No account, no upload, no server — everything runs locally using WebAssembly OCR and on-device face detection.
 
 ---
