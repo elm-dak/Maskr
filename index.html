@@ -489,7 +489,7 @@
 <section id="videoTool" style="display:none">
   <div class="vid-intro">
     <h2>Video Redactor</h2>
-    <p>Drop a video. Maskr scans every frame for faces and weapons, blurs them out, and gives you a clean redacted file — all in your browser. Nothing is uploaded.</p>
+    <p>Drop a video, then choose a mode: <strong>mask sensitive content</strong> (blur faces &amp; weapons frame-by-frame) or <strong>compress</strong> it into a much smaller file. Everything runs in your browser — nothing is uploaded.</p>
   </div>
 
   <div class="drop-zone" id="vidDropZone">
@@ -514,27 +514,48 @@
 
     <!-- Options panel -->
     <aside class="panel">
-      <h3>What to redact</h3>
-      <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
-        <label class="vid-option-row"><input type="checkbox" id="vBlurFaces" checked /> Faces <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">BlazeFace</span></label>
-        <label class="vid-option-row"><input type="checkbox" id="vBlurWeapons" /> Weapons / objects <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">EfficientDet</span></label>
-        <button class="btn wide" id="vidClearBoxesBtn" style="margin-top:4px">⌫ Clear drawn boxes</button>
-      </div>
+      <h3>Mode</h3>
+      <select id="vidMode" class="field-select" style="margin-bottom:6px">
+        <option value="redact">Mask sensitive content</option>
+        <option value="compress">Compress video (smaller file)</option>
+      </select>
 
-      <h3 style="margin-top:4px">Redaction style</h3>
-      <div class="style-select" id="vidStyleSelect">
-        <div class="style-opt" data-style="block">Block</div>
-        <div class="style-opt active" data-style="blur">Blur</div>
-        <div class="style-opt" data-style="pixel">Pixel</div>
-      </div>
-
-      <h3 style="margin-top:4px">Detection rate</h3>
-      <div style="padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
-        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px">
-          <span>Detect every N frames</span><span id="vidDetectEveryVal">5</span>
+      <!-- Redaction options -->
+      <div id="vidRedactOpts">
+        <h3>What to redact</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+          <label class="vid-option-row"><input type="checkbox" id="vBlurFaces" checked /> Faces <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">BlazeFace</span></label>
+          <label class="vid-option-row"><input type="checkbox" id="vBlurWeapons" /> Weapons / objects <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto">EfficientDet</span></label>
+          <button class="btn wide" id="vidClearBoxesBtn" style="margin-top:4px">⌫ Clear drawn boxes</button>
         </div>
-        <input type="range" id="vidDetectEvery" min="1" max="15" value="5" style="width:100%;accent-color:var(--ink);cursor:pointer" />
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Lower = more accurate but slower · Higher = faster</div>
+
+        <h3 style="margin-top:4px">Redaction style</h3>
+        <div class="style-select" id="vidStyleSelect">
+          <div class="style-opt" data-style="block">Block</div>
+          <div class="style-opt active" data-style="blur">Blur</div>
+          <div class="style-opt" data-style="pixel">Pixel</div>
+        </div>
+
+        <h3 style="margin-top:4px">Detection rate</h3>
+        <div style="padding:10px 12px;background:var(--paper);border:1px dashed var(--line)">
+          <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px">
+            <span>Detect every N frames</span><span id="vidDetectEveryVal">5</span>
+          </div>
+          <input type="range" id="vidDetectEvery" min="1" max="15" value="5" style="width:100%;accent-color:var(--ink);cursor:pointer" />
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Lower = more accurate but slower · Higher = faster</div>
+        </div>
+      </div>
+
+      <!-- Compression options -->
+      <div id="vidCompressOpts" style="display:none">
+        <h3>Compression level</h3>
+        <select id="vidCompressPreset" class="field-select">
+          <option value="strong">Strong · 480p — smallest file</option>
+          <option value="balanced" selected>Balanced · 720p</option>
+          <option value="light">Light · 1080p — best quality</option>
+        </select>
+        <div id="vidCompressEst" style="margin-top:8px;padding:10px 12px;background:var(--paper);border:1px dashed var(--line);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">Load a video to see the estimate</div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:8px;line-height:1.5">Re-encodes at a lower resolution &amp; bitrate. Audio kept when your browser supports it. Runs in real time (a 2-min clip ≈ 2 min). Output: WebM.</p>
       </div>
 
       <div class="actions" style="margin-top:4px">
@@ -1492,11 +1513,27 @@ const vidDetectEvery = document.getElementById("vidDetectEvery");
 const vidDetectEveryVal = document.getElementById("vidDetectEveryVal");
 const vBlurFaces     = document.getElementById("vBlurFaces");
 const vBlurWeapons   = document.getElementById("vBlurWeapons");
+const vidModeSel     = document.getElementById("vidMode");
+const vidRedactOpts  = document.getElementById("vidRedactOpts");
+const vidCompressOpts= document.getElementById("vidCompressOpts");
+const vidCompressSel = document.getElementById("vidCompressPreset");
+const vidCompressEst = document.getElementById("vidCompressEst");
 
 let vidStyle = "blur";
 let vidDetectN = 5;
 let vidResultBlob = null;
 let vidProcessing = false;
+let vidMode = "redact";          // "redact" | "compress"
+let vidDuration = 0;             // seconds, set once a file is loaded
+
+// Compression presets: cap the long edge (downscale) + target video bitrate.
+// Audio is encoded separately (~96 kbps). Lower bitrate = smaller file.
+const COMPRESS_PRESETS = {
+  strong:   { maxEdge: 854,  vbps: 700_000  },
+  balanced: { maxEdge: 1280, vbps: 1_500_000 },
+  light:    { maxEdge: 1920, vbps: 4_000_000 },
+};
+const COMPRESS_ABPS = 96_000;
 
 /* ── Manual region boxes (drawn on the preview, redacted for the whole clip) ── */
 let vidManualBoxes = [];        // { x,y,w,h } in source-video pixel coords
@@ -1533,6 +1570,8 @@ async function vidShowFirstFrame(file){
   catch { return; }
   await vidSeek(v, 0);
   vidSrcW = v.videoWidth; vidSrcH = v.videoHeight;
+  vidDuration = isFinite(v.duration) ? v.duration : 0;
+  vidUpdateCompressEst();
   const scale = Math.min(1, 640 / Math.max(vidSrcW, vidSrcH));
   vidPreview.width  = Math.round(vidSrcW * scale);
   vidPreview.height = Math.round(vidSrcH * scale);
@@ -1658,6 +1697,36 @@ vidDetectEvery.addEventListener("input", () => {
   vidDetectEveryVal.textContent = vidDetectN;
 });
 
+/* ── Mode: mask sensitive content vs compress ── */
+function vidApplyMode() {
+  vidMode = vidModeSel.value;
+  const compress = vidMode === "compress";
+  vidRedactOpts.style.display   = compress ? "none" : "";
+  vidCompressOpts.style.display = compress ? "" : "none";
+  vidProcessBtn.textContent = compress ? "▶ Compress video" : "▶ Start processing";
+  vidDownloadBtn.textContent = compress ? "↓ Download compressed video" : "↓ Download redacted video";
+  // Drawing manual boxes only makes sense in redact mode.
+  document.getElementById("vidDrawHint")?.classList.toggle("show", !compress && !!vidFirstFrame && !vidProcessing);
+  vidPreview.style.cursor = (!compress && vidFirstFrame && !vidProcessing) ? "crosshair" : "default";
+  if (compress) vidUpdateCompressEst();
+}
+vidModeSel.addEventListener("change", vidApplyMode);
+
+// Rough output-size estimate from target bitrate × duration. MediaRecorder has
+// no 2-pass rate control, so this is an approximation, not a guarantee.
+function vidUpdateCompressEst() {
+  if (!vidCompressEst) return;
+  const p = COMPRESS_PRESETS[vidCompressSel.value] || COMPRESS_PRESETS.balanced;
+  if (!vidDuration) { vidCompressEst.textContent = "Load a video to see the estimate"; return; }
+  const bytes = ((p.vbps + COMPRESS_ABPS) / 8) * vidDuration;
+  const mb = bytes / 1048576;
+  const long = Math.max(vidSrcW, vidSrcH) || 0;
+  const outLong = Math.min(long || p.maxEdge, p.maxEdge);
+  vidCompressEst.textContent =
+    `≈ ${mb < 1 ? (bytes/1024).toFixed(0)+" KB" : mb.toFixed(1)+" MB"} · ${Math.round(outLong)}px long edge · ~${Math.ceil(vidDuration)}s to process`;
+}
+vidCompressSel.addEventListener("change", vidUpdateCompressEst);
+
 vidDropZone.addEventListener("click", () => vidFileInput.click());
 vidFileInput.addEventListener("change", e => { const f = e.target.files[0]; if (f) vidLoadFile(f); });
 ["dragenter","dragover"].forEach(ev => vidDropZone.addEventListener(ev, e => { e.preventDefault(); vidDropZone.classList.add("dragover"); }));
@@ -1682,7 +1751,8 @@ vidProcessBtn.addEventListener("click", async () => {
   if (vidProcessing) return;
   const file = vidProcessBtn._file;
   if (!file) return;
-  await runVideoRedaction(file);
+  if (vidMode === "compress") await runVideoCompression(file);
+  else await runVideoRedaction(file);
 });
 
 async function runVideoRedaction(file) {
@@ -1832,11 +1902,130 @@ async function runVideoRedaction(file) {
   console.log(`Maskr Video: done, ${(vidResultBlob.size/1048576).toFixed(2)} MB`);
 }
 
+// Re-encode the video at a lower resolution + bitrate to shrink the file.
+// No detection/redaction — just a downscaled real-time re-record of the source,
+// keeping audio when the browser exposes it on the captured stream.
+async function runVideoCompression(file) {
+  vidProcessing = true;
+  vidProcessBtn.disabled = true;
+  vidCancelBtn.style.display = "block";
+  vidDownloadBtn.disabled = true;
+  vidResultBlob = null;
+  vidPreview.style.cursor = "default";
+  document.getElementById("vidDrawHint")?.classList.remove("show");
+
+  const srcSize = file.size;
+  const video = document.createElement("video");
+  video.src = URL.createObjectURL(file);
+  video.muted = true; video.playsInline = true; video.preload = "auto";
+  try {
+    await new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = () => rej(new Error("load")); });
+  } catch (_) {
+    alert("Couldn't read that video.");
+    vidProcessing = false; vidProcessBtn.disabled = false; vidCancelBtn.style.display = "none";
+    try { URL.revokeObjectURL(video.src); } catch (_) {}
+    return;
+  }
+
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const duration = isFinite(video.duration) ? video.duration : 0;
+  const preset = COMPRESS_PRESETS[vidCompressSel.value] || COMPRESS_PRESETS.balanced;
+
+  // Downscale: cap the long edge, keep aspect ratio, force even dimensions.
+  const long = Math.max(vw, vh) || preset.maxEdge;
+  const scale = Math.min(1, preset.maxEdge / long);
+  const ow = Math.max(2, Math.round(vw * scale / 2) * 2);
+  const oh = Math.max(2, Math.round(vh * scale / 2) * 2);
+
+  const outC = document.createElement("canvas");
+  outC.width = ow; outC.height = oh;
+  const outCtx = outC.getContext("2d");
+
+  // Preview (scaled for display)
+  const pscale = Math.min(1, 640 / Math.max(ow, oh));
+  vidPreview.width  = Math.max(1, Math.round(ow * pscale));
+  vidPreview.height = Math.max(1, Math.round(oh * pscale));
+  vidPreview.style.display = "block"; vidEmpty.style.display = "none";
+  const prevCtx = vidPreview.getContext("2d");
+
+  vidProgressWrap.classList.add("show");
+  vidProgressBar.style.width = "0%";
+  vidProgressLbl.textContent = "Preparing…";
+
+  // Recording stream: downscaled canvas video + original audio (best effort).
+  const canvasStream = outC.captureStream();
+  let recStream = canvasStream;
+  try {
+    const cap = video.captureStream ? video.captureStream()
+              : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+    const aTrack = cap && cap.getAudioTracks ? cap.getAudioTracks()[0] : null;
+    if (aTrack) recStream = new MediaStream([...canvasStream.getVideoTracks(), aTrack]);
+  } catch (_) { /* video-only fallback */ }
+
+  const mime = ["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm","video/mp4"]
+    .find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
+  let recorder;
+  try {
+    recorder = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: preset.vbps, audioBitsPerSecond: COMPRESS_ABPS });
+  } catch (_) {
+    recorder = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: preset.vbps });
+  }
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.start(500);
+
+  // Real-time playback; draw each downscaled frame to the canvas as it plays.
+  const t0 = performance.now();
+  let raf = 0;
+  const draw = () => {
+    if (!vidProcessing) return; // cancelled
+    outCtx.drawImage(video, 0, 0, ow, oh);
+    prevCtx.drawImage(outC, 0, 0, vidPreview.width, vidPreview.height);
+    const pct = duration ? Math.min(1, video.currentTime / duration) : 0;
+    vidProgressBar.style.width = (pct * 100).toFixed(1) + "%";
+    const elapsed = (performance.now() - t0) / 1000;
+    const eta = pct > 0.02 ? (elapsed / pct) * (1 - pct) : 0;
+    vidProgressLbl.textContent = `Compressing ${(pct*100).toFixed(0)}% · ${ow}×${oh}${eta>0?" · ETA "+Math.ceil(eta)+"s":""}`;
+    raf = requestAnimationFrame(draw);
+  };
+  try { await video.play(); } catch (_) {}
+  raf = requestAnimationFrame(draw);
+
+  // Wait for the clip to finish OR the user to cancel.
+  await new Promise(resolve => {
+    const check = setInterval(() => {
+      if (!vidProcessing || video.ended) { clearInterval(check); resolve(); }
+    }, 150);
+    video.onended = () => { clearInterval(check); resolve(); };
+  });
+
+  cancelAnimationFrame(raf);
+  try { video.pause(); } catch (_) {}
+  await new Promise(r => { recorder.onstop = r; if (recorder.state !== "inactive") recorder.stop(); else r(); });
+  try { URL.revokeObjectURL(video.src); } catch (_) {}
+
+  vidResultBlob = new Blob(chunks, { type: mime.split(";")[0] });
+  const outMB = vidResultBlob.size / 1048576, inMB = srcSize / 1048576;
+  const saved = srcSize > 0 ? Math.round((1 - vidResultBlob.size / srcSize) * 100) : 0;
+  vidProgressBar.style.width = "100%";
+  if (vidResultBlob.size === 0) {
+    vidProgressLbl.textContent = "Compression produced no output — try a different level.";
+  } else {
+    vidProgressLbl.textContent = `Done — ${outMB.toFixed(1)} MB (was ${inMB.toFixed(1)} MB${saved>0?", −"+saved+"%":""}) · click Download`;
+  }
+  vidDownloadBtn.disabled = vidResultBlob.size === 0;
+  vidProcessBtn.disabled = false;
+  vidCancelBtn.style.display = "none";
+  vidProcessing = false;
+  console.log(`Maskr Compress: ${inMB.toFixed(2)}MB -> ${outMB.toFixed(2)}MB (${ow}x${oh})`);
+}
+
 vidDownloadBtn.addEventListener("click", () => {
   if (!vidResultBlob) return;
   const ext = vidResultBlob.type.includes("mp4") ? "mp4" : "webm";
+  const base = vidMode === "compress" ? "compressed" : "redacted";
   const url = URL.createObjectURL(vidResultBlob);
-  const a = document.createElement("a"); a.href = url; a.download = `redacted.${ext}`; a.click();
+  const a = document.createElement("a"); a.href = url; a.download = `${base}.${ext}`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 });
 
